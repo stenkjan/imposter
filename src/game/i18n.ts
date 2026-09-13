@@ -1,0 +1,238 @@
+export type Lang = 'de' | 'en'
+
+export const LANGS: Lang[] = ['de', 'en']
+
+type Vars = Record<string, string | number>
+
+const de = {
+  appName: 'Imposter',
+  tagline: 'Einer kennt das Wort nicht.',
+
+  // Home
+  players: 'Spieler',
+  playerNamePlaceholder: 'Name eingeben',
+  addPlayer: 'Hinzufügen',
+  removePlayer: '{name} entfernen',
+  needMorePlayers: 'Mindestens {n} Spieler',
+  noPlayersYet: 'Noch niemand dabei',
+  duplicateName: 'Diesen Namen gibt es schon',
+  next: 'Weiter',
+  howToPlay: 'So wird gespielt',
+  close: 'Schließen',
+  language: 'Sprache',
+
+  // Rules
+  rulesTitle: 'So wird gespielt',
+  rule1: 'Alle bekommen dasselbe geheime Wort – außer dem Imposter.',
+  rule2: 'Reihum sagt jede:r ein einziges Wort, das zum Begriff passt. Keine ganzen Sätze.',
+  rule3: 'Das Wort darf nicht genannt werden. Zu genau ist genauso verdächtig wie zu vage.',
+  rule4: 'Danach wird diskutiert und abgestimmt. Wer die meisten Stimmen hat, fliegt raus.',
+  rule5: 'Die Zivilisten gewinnen, wenn alle Imposter draußen sind. Die Imposter gewinnen, sobald sie genauso viele sind wie der Rest.',
+
+  // Settings
+  settings: 'Einstellungen',
+  back: 'Zurück',
+  imposterCount: 'Imposter',
+  imposterCountHint: 'Empfohlen: {n} bei {p} Spielern',
+  imposterHint: 'Hinweis für Imposter',
+  imposterHintOn: 'Der Imposter sieht die Kategorie',
+  imposterHintOff: 'Der Imposter bekommt gar nichts',
+  rounds: 'Runden',
+  roundsHint: 'Jede Runde ein neues Wort',
+  timer: 'Timer',
+  timerHint: 'Zeit pro Diskussion',
+  timerOff: 'Aus',
+  lastChance: 'Letzte Chance',
+  lastChanceHint: 'Erwischter Imposter darf das Wort raten',
+  categories: 'Kategorien',
+  categoriesHint: '{n} ausgewählt',
+  selectAll: 'Alle',
+  startGame: 'Spiel starten',
+  needCategory: 'Mindestens eine Kategorie',
+  on: 'An',
+  off: 'Aus',
+
+  // Reveal
+  round: 'Runde {n}/{total}',
+  passTo: 'Handy an {name}',
+  passToHint: 'Niemand sonst schaut mit.',
+  tapToReveal: 'Antippen zum Aufdecken',
+  yourWord: 'Dein Wort',
+  youAreImposter: 'Du bist der Imposter',
+  imposterBlurb: 'Tu so, als würdest du das Wort kennen.',
+  category: 'Kategorie',
+  noHint: 'Kein Hinweis',
+  gotIt: 'Verstanden',
+
+  // Discussion
+  discussion: 'Diskussion',
+  startsWith: '{name} fängt an',
+  clueOrder: 'Reihenfolge',
+  discussHint: 'Reihum ein Wort. Dann diskutieren.',
+  startTimer: 'Timer starten',
+  pause: 'Pause',
+  resume: 'Weiter',
+  timeUp: 'Zeit um',
+  toVote: 'Abstimmen',
+
+  // Vote
+  voteTitle: 'Wer ist der Imposter?',
+  voteHint: 'Gemeinsam abstimmen, dann antippen.',
+  pickSomeone: 'Person auswählen',
+  eject: '{name} rauswerfen',
+  nobody: 'Unentschieden – niemand fliegt',
+  stillIn: 'Noch dabei',
+  out: 'Raus',
+
+  // Round result
+  wasImposter: 'war ein Imposter',
+  wasCivilian: 'war unschuldig',
+  nobodyEjected: 'Niemand ist rausgeflogen',
+  keepPlaying: 'Weiter diskutieren',
+  civiliansWin: 'Die Zivilisten gewinnen',
+  impostersWin: 'Die Imposter gewinnen',
+  theWordWas: 'Das Wort war',
+  imposterWas: 'Imposter',
+  impostersWere: 'Imposter',
+  nextRound: 'Nächste Runde',
+  seeScores: 'Endstand',
+  points: 'Punkte',
+  pointsShort: 'Pkt',
+
+  // Last chance
+  lastChanceTitle: 'Letzte Chance',
+  lastChanceBody: '{names} darf das Wort jetzt laut raten.',
+  guessedRight: 'Richtig geraten',
+  guessedWrong: 'Daneben',
+
+  // Final
+  finalTitle: 'Endstand',
+  winnerIs: '{name} gewinnt',
+  itIsATie: 'Unentschieden',
+  playAgain: 'Nochmal spielen',
+  newLineup: 'Spieler ändern',
+  civilian: 'Zivilist',
+  imposter: 'Imposter',
+} as const
+
+type Dict = Record<keyof typeof de, string>
+
+const en: Dict = {
+  appName: 'Imposter',
+  tagline: "One of you doesn't know the word.",
+
+  players: 'Players',
+  playerNamePlaceholder: 'Enter a name',
+  addPlayer: 'Add',
+  removePlayer: 'Remove {name}',
+  needMorePlayers: 'At least {n} players',
+  noPlayersYet: 'Nobody here yet',
+  duplicateName: 'That name is already taken',
+  next: 'Next',
+  howToPlay: 'How to play',
+  close: 'Close',
+  language: 'Language',
+
+  rulesTitle: 'How to play',
+  rule1: 'Everyone gets the same secret word — except the imposter.',
+  rule2: 'Taking turns, each player says one single word that fits. No full sentences.',
+  rule3: 'Never say the word itself. Too precise is as suspicious as too vague.',
+  rule4: 'Then you discuss and vote. Whoever gets the most votes is out.',
+  rule5: 'Civilians win once every imposter is out. Imposters win as soon as they match the rest in numbers.',
+
+  settings: 'Settings',
+  back: 'Back',
+  imposterCount: 'Imposters',
+  imposterCountHint: 'Recommended: {n} for {p} players',
+  imposterHint: 'Clue for the imposter',
+  imposterHintOn: 'The imposter sees the category',
+  imposterHintOff: 'The imposter gets nothing at all',
+  rounds: 'Rounds',
+  roundsHint: 'A new word every round',
+  timer: 'Timer',
+  timerHint: 'Time per discussion',
+  timerOff: 'Off',
+  lastChance: 'Last chance',
+  lastChanceHint: 'A caught imposter may guess the word',
+  categories: 'Categories',
+  categoriesHint: '{n} selected',
+  selectAll: 'All',
+  startGame: 'Start game',
+  needCategory: 'Pick at least one category',
+  on: 'On',
+  off: 'Off',
+
+  round: 'Round {n}/{total}',
+  passTo: 'Pass to {name}',
+  passToHint: 'Nobody else looks.',
+  tapToReveal: 'Tap to reveal',
+  yourWord: 'Your word',
+  youAreImposter: 'You are the imposter',
+  imposterBlurb: 'Act like you know the word.',
+  category: 'Category',
+  noHint: 'No clue',
+  gotIt: 'Got it',
+
+  discussion: 'Discussion',
+  startsWith: '{name} starts',
+  clueOrder: 'Order',
+  discussHint: 'One word each, then talk it out.',
+  startTimer: 'Start timer',
+  pause: 'Pause',
+  resume: 'Resume',
+  timeUp: "Time's up",
+  toVote: 'Vote',
+
+  voteTitle: 'Who is the imposter?',
+  voteHint: 'Agree out loud, then tap.',
+  pickSomeone: 'Pick someone',
+  eject: 'Eject {name}',
+  nobody: 'Tie — nobody is out',
+  stillIn: 'Still in',
+  out: 'Out',
+
+  wasImposter: 'was an imposter',
+  wasCivilian: 'was innocent',
+  nobodyEjected: 'Nobody was ejected',
+  keepPlaying: 'Keep talking',
+  civiliansWin: 'The civilians win',
+  impostersWin: 'The imposters win',
+  theWordWas: 'The word was',
+  imposterWas: 'Imposter',
+  impostersWere: 'Imposters',
+  nextRound: 'Next round',
+  seeScores: 'Final scores',
+  points: 'points',
+  pointsShort: 'pts',
+
+  lastChanceTitle: 'Last chance',
+  lastChanceBody: '{names} may now guess the word out loud.',
+  guessedRight: 'Guessed right',
+  guessedWrong: 'Missed it',
+
+  finalTitle: 'Final scores',
+  winnerIs: '{name} wins',
+  itIsATie: 'It is a tie',
+  playAgain: 'Play again',
+  newLineup: 'Change players',
+  civilian: 'Civilian',
+  imposter: 'Imposter',
+}
+
+export const STRINGS: Record<Lang, Dict> = { de, en }
+
+export type TKey = keyof Dict
+export type Translate = (key: TKey, vars?: Vars) => string
+
+export function translator(lang: Lang): Translate {
+  const dict = STRINGS[lang]
+  return (key, vars) => {
+    const raw = dict[key]
+    if (!vars) return raw
+    return raw.replace(/\{(\w+)\}/g, (m, name: string) =>
+      name in vars ? String(vars[name]) : m,
+    )
+  }
+}
+
+export const LANG_LABEL: Record<Lang, string> = { de: 'Deutsch', en: 'English' }
