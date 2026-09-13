@@ -24,7 +24,15 @@ npm run dev      # http://localhost:5173 – im Netz unter der LAN-IP erreichbar
 npm run build
 npm run preview
 npm run icons    # PNG-Icons neu rendern
+
+npm run test:live                            # Abnahmelauf gegen die Produktion
+npm run test:live -- http://localhost:5173   # ... oder gegen den Dev-Server
 ```
+
+`scripts/acceptance.mjs` spielt eine komplette Online-Partie durch und prüft dabei
+das, was man beim Klicken nicht sieht: dass der Imposter das Wort nie geschickt
+bekommt, dass eine abgegebene Stimme ihr Ziel nicht verrät, dass nur der Gastgeber
+die Runde taktet und dass der Stream innerhalb einer Sekunde pusht.
 
 Der Dev-Server bindet auf alle Interfaces, also lässt sich `http://<LAN-IP>:5173`
 direkt am Handy öffnen. **Der Online-Modus funktioniert lokal ohne jede Cloud:**
