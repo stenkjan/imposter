@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Translate } from '../game/i18n'
 import type { ClientAction, PlayerView, RoomView } from '../online/protocol'
 import { Crew } from '../components/Characters'
+import { RoleCard } from '../components/RoleCard'
 import { Avatar, TopBar } from '../components/ui'
 import { buzz, useCountdown } from '../hooks'
 import { SettingsScreen } from './SettingsScreen'
@@ -203,63 +204,41 @@ function Reveal({ t, view, live, act, onLeave }: Props) {
         onLeave={onLeave}
         step={t('round', { n: round.index + 1, total: round.rounds })}
       />
-      {!open ? (
-        <>
-          <div className="pass">
-            <Avatar name={you.name} size={64} />
-            <div className="who">{you.name}</div>
-            <p>{t('passToHint')}</p>
-          </div>
-          <button
-            className="tap-card"
-            onClick={() => {
-              buzz()
-              setOpen(true)
-            }}
-          >
-            <span className="seal" aria-hidden="true">
-              🤫
-            </span>
-            {t('tapToReveal')}
+
+      <RoleCard
+        t={t}
+        name={you.name}
+        open={open}
+        onOpen={() => {
+          buzz()
+          setOpen(true)
+        }}
+        imposter={round.imposter}
+        word={round.word}
+        category={round.category}
+        noHint={round.imposter && !round.category}
+      />
+
+      <div className="actions">
+        {open ? (
+          <button className="btn btn-primary" onClick={() => act({ type: 'ready' })}>
+            {t('imReady')}
           </button>
-          <div className="actions">
-            <p className="hint">{t('readyCount', { n: readyCount, total: view.players.length })}</p>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className={round.imposter ? 'role-card imposter' : 'role-card civilian'}>
-            <Crew tone={round.imposter ? 'imposter' : 'civilian'} size={96} />
-            {round.imposter ? (
-              <>
-                <span className="eyebrow">{you.name}</span>
-                <span className="word alert">{t('youAreImposter')}</span>
-                <p>{t('imposterBlurb')}</p>
-                <span className="badge">
-                  {round.category
-                    ? `${round.category.emoji} ${t('category')}: ${round.category.name}`
-                    : `🚫 ${t('noHint')}`}
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="eyebrow">{t('yourWord')}</span>
-                <span className="word">{round.word}</span>
-                {round.category && (
-                  <span className="badge">
-                    {round.category.emoji} {round.category.name}
-                  </span>
-                )}
-              </>
-            )}
-          </div>
-          <div className="actions">
-            <button className="btn btn-primary" onClick={() => act({ type: 'ready' })}>
-              {t('imReady')}
+        ) : (
+          <>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                buzz()
+                setOpen(true)
+              }}
+            >
+              {t('revealButton')}
             </button>
-          </div>
-        </>
-      )}
+            <p className="hint">{t('readyCount', { n: readyCount, total: view.players.length })}</p>
+          </>
+        )}
+      </div>
     </div>
   )
 }

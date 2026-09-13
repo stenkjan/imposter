@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import type { Lang, Translate } from '../game/i18n'
 import { isImposter, roundCategory, roundWord, type GameState } from '../game/state'
-import { Crew } from '../components/Characters'
-import { Avatar, TopBar } from '../components/ui'
+import { RoleCard } from '../components/RoleCard'
+import { TopBar } from '../components/ui'
 import { buzz } from '../hooks'
 
 export function RevealScreen({
@@ -21,11 +21,6 @@ export function RevealScreen({
   const imposter = isImposter(state.round, player.id)
   const category = roundCategory(state.round)
 
-  const advance = () => {
-    setOpen(false)
-    onNext()
-  }
-
   return (
     <div className="screen">
       <TopBar
@@ -33,63 +28,49 @@ export function RevealScreen({
         step={t('round', { n: state.round.index + 1, total: state.settings.rounds })}
       />
 
-      {!open ? (
-        <>
-          <div className="pass">
-            <Avatar name={player.name} size={64} />
-            <div className="who">{t('passTo', { name: player.name })}</div>
-            <p>{t('passToHint')}</p>
-          </div>
+      <RoleCard
+        t={t}
+        name={player.name}
+        open={open}
+        onOpen={() => {
+          buzz()
+          setOpen(true)
+        }}
+        imposter={imposter}
+        word={imposter ? null : roundWord(state.round)[lang]}
+        category={{ emoji: category.emoji, name: category.name[lang] }}
+        noHint={imposter && !state.settings.hintForImposter}
+      />
+
+      <div className="actions">
+        {open ? (
           <button
-            className="tap-card"
+            className="btn btn-primary"
             onClick={() => {
-              buzz()
-              setOpen(true)
+              setOpen(false)
+              onNext()
             }}
           >
-            <span className="seal" aria-hidden="true">
-              🤫
-            </span>
-            {t('tapToReveal')}
+            {t('gotIt')}
           </button>
-          <div className="actions">
+        ) : (
+          <>
+            <p className="hint">{t('passToHint')}</p>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                buzz()
+                setOpen(true)
+              }}
+            >
+              {t('revealButton')}
+            </button>
             <p className="hint">
               {state.round.revealed + 1} / {state.players.length}
             </p>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className={imposter ? 'role-card imposter' : 'role-card civilian'}>
-            <Crew tone={imposter ? 'imposter' : 'civilian'} size={96} />
-            {imposter ? (
-              <>
-                <span className="eyebrow">{player.name}</span>
-                <span className="word alert">{t('youAreImposter')}</span>
-                <p>{t('imposterBlurb')}</p>
-                <span className="badge">
-                  {state.settings.hintForImposter
-                    ? `${category.emoji} ${t('category')}: ${category.name[lang]}`
-                    : `🚫 ${t('noHint')}`}
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="eyebrow">{t('yourWord')}</span>
-                <span className="word">{roundWord(state.round)[lang]}</span>
-                <span className="badge">
-                  {category.emoji} {category.name[lang]}
-                </span>
-              </>
-            )}
-          </div>
-          <div className="actions">
-            <button className="btn btn-primary" onClick={advance}>
-              {t('gotIt')}
-            </button>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
