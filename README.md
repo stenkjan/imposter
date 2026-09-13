@@ -56,6 +56,8 @@ src/
   game/i18n.ts       Übersetzungen, typsicher über den deutschen Schlüsselsatz
   online/protocol.ts Wire-Format, von Client und API geteilt
   online/client.ts   fetch-Wrapper und der EventSource-Hook
+  game/portraits.ts  Rollenbilder und die Namen-Portraits (Easter Egg)
+  components/RoleCard.tsx  verdeckte Karte, Flip-Animation, Bild
   screens/           ein Screen pro Phase, lokal wie online
 api/
   room.ts            Raum anlegen, beitreten, Snapshot
@@ -75,6 +77,12 @@ eigene Rolle auf – nie die der anderen. Abstimmungen liegen in einem Redis-Has
 Bereit-Meldungen in einem Set, damit gleichzeitige Klicks sich nicht überschreiben;
 wer die Abstimmung vollmacht, wertet sie aus und hält dafür kurz ein Lock.
 
+**Die Rollenkarte** liegt verdeckt, bis der Knopf unten gedrueckt wird; dann dreht
+sie in 3D auf das Bild fuer die eigene Rolle. Die Rueckseite ist fuer beide Rollen
+identisch, damit der Bildschirm vorher nichts verraet. Eigene Portraits fuer
+bestimmte Namen traegt man in `src/game/portraits.ts` ein – das Bild erscheint dann
+ueber dem Namen statt der Initiale.
+
 Mobile-First: `100dvh`, `env(safe-area-inset-*)`, Touchziele ≥ 52 px, 16-px-Inputs
 (kein iOS-Zoom), `clamp()`-Typografie, PWA-Manifest plus Service Worker.
 
@@ -89,6 +97,10 @@ Zwei bewusste Kompromisse:
   einmal pro Sekunde einen Versionszähler und schickt den Raum nur bei Änderung. Das
   kostet rund ein Redis-Kommando pro Sekunde und Spieler – auf dem Free-Tier (500.000
   Kommandos/Monat) reichen das für etwa 15 Stunden Spiel mit acht Leuten.
+- **Relative Imports in `api/` brauchen `.js`.** Vercel transpiliert die Dateien
+  einzeln nach ESM statt sie zu buendeln, und Node loest extensionlose Specifier
+  zur Laufzeit nicht auf. Vite mappt `.js` weiterhin auf die `.ts`-Datei, lokal
+  faellt es also nicht auf – dafuer stirbt jede Function in Produktion.
 - **Das Token steht in der Stream-URL.** `EventSource` kann keine Header setzen. Es ist
   ein Wegwerf-Token für einen Raum, der nach sechs Stunden verfällt; sauberer wäre ein
   HttpOnly-Cookie.
