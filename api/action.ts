@@ -6,9 +6,9 @@ import {
   reduce,
   MIN_PLAYERS,
   type GameState,
-} from '../src/game/state'
-import { isValidCode, type ClientAction } from '../src/online/protocol'
-import * as kv from './_lib/kv'
+} from '../src/game/state.js'
+import { isValidCode, type ClientAction } from '../src/online/protocol.js'
+import * as kv from './_lib/kv.js'
 import {
   authorize,
   clampSettings,
@@ -20,7 +20,7 @@ import {
   versionKey,
   viewFor,
   type Room,
-} from './_lib/room'
+} from './_lib/room.js'
 
 /**
  * Every change to a room goes through here. Two rules keep it honest:

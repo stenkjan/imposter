@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { isValidCode } from '../src/online/protocol'
-import * as kv from './_lib/kv'
-import { authorize, loadRoom, touchPresence, versionKey, viewFor } from './_lib/room'
+import { isValidCode } from '../src/online/protocol.js'
+import * as kv from './_lib/kv.js'
+import { authorize, loadRoom, touchPresence, versionKey, viewFor } from './_lib/room.js'
 
 /**
  * Server-sent events: the phone holds one connection and gets the room pushed

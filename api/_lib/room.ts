@@ -1,4 +1,4 @@
-import type { Lang } from '../../src/game/i18n'
+import type { Lang } from '../../src/game/i18n.js'
 import {
   defaultSettings,
   maxImposters,
@@ -7,9 +7,9 @@ import {
   type GameState,
   type Player,
   type Settings,
-} from '../../src/game/state'
-import { CODE_ALPHABET, ROOM_CODE_LENGTH, type PlayerView, type RoomView } from '../../src/online/protocol'
-import * as kv from './kv'
+} from '../../src/game/state.js'
+import { CODE_ALPHABET, ROOM_CODE_LENGTH, type PlayerView, type RoomView } from '../../src/online/protocol.js'
+import * as kv from './kv.js'
 
 /** Rooms are ephemeral: a party ends, the keys expire, nothing to clean up. */
 export const ROOM_TTL = 6 * 60 * 60

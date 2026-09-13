@@ -1,4 +1,4 @@
-import { CATEGORIES, CATEGORY_BY_ID, type Word } from './words'
+import { CATEGORIES, CATEGORY_BY_ID, type Word } from './words.js'
 
 /**
  * The whole game as plain, serialisable data plus a pure reducer.

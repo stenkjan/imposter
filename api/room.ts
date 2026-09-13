@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { MAX_PLAYERS } from '../src/game/state'
-import { isValidCode } from '../src/online/protocol'
-import { kvConfigured } from './_lib/kv'
+import { MAX_PLAYERS } from '../src/game/state.js'
+import { isValidCode } from '../src/online/protocol.js'
+import { kvConfigured } from './_lib/kv.js'
 import {
   authorize,
   createRoom,
@@ -13,8 +13,8 @@ import {
   touchPresence,
   versionKey,
   viewFor,
-} from './_lib/room'
-import { get } from './_lib/kv'
+} from './_lib/room.js'
+import { get } from './_lib/kv.js'
 
 const cleanName = (value: unknown): string =>
   typeof value === 'string' ? value.trim().slice(0, 16) : ''

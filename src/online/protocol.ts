@@ -1,5 +1,5 @@
-import type { Lang } from '../game/i18n'
-import type { Phase, Settings } from '../game/state'
+import type { Lang } from '../game/i18n.js'
+import type { Phase, Settings } from '../game/state.js'
 
 /**
  * The wire format between the phone and the room, shared by client and API so
