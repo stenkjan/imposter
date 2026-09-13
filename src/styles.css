@@ -1027,3 +1027,139 @@ ul {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* --------------------------------------------------------------- online */
+
+.mode-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 18px var(--pad);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--ink-500);
+  background: var(--ink-700);
+  text-align: left;
+  transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.mode-card:active {
+  transform: scale(0.985);
+  background: var(--ink-600);
+}
+
+.mode-card.accent {
+  border-color: rgba(240, 79, 106, 0.42);
+  background: linear-gradient(140deg, rgba(240, 79, 106, 0.14), var(--ink-700) 62%);
+}
+
+.mode-card .glyph {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  font-size: 30px;
+}
+
+.mode-card .glyph.crew {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.mode-card .copy strong {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.mode-card .copy small {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+
+.code-plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--ink-400);
+  background: var(--ink-700);
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+
+.code-plate:active {
+  transform: scale(0.985);
+  background: var(--ink-600);
+}
+
+.code-plate small {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-weight: 650;
+}
+
+.code-plate strong {
+  font-size: clamp(40px, 13vw, 56px);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-indent: 0.16em; /* balances the trailing letter-spacing */
+  line-height: 1.05;
+}
+
+.code-input {
+  width: 100%;
+  min-height: 62px;
+  padding: 0 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--ink-500);
+  background: var(--ink-800);
+  font-size: 30px;
+  font-weight: 750;
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-indent: 0.3em;
+  text-transform: uppercase;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.code-input:focus {
+  outline: none;
+  border-color: var(--green);
+}
+
+.code-input::placeholder {
+  font-size: 16px;
+  font-weight: 550;
+  letter-spacing: 0;
+  text-indent: 0;
+  text-transform: none;
+  color: var(--text-faint);
+}
+
+.tick {
+  flex: none;
+  color: var(--green);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.tag-faint {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.player-chip .badge {
+  flex: none;
+  padding: 2px 8px;
+  color: var(--amber);
+}
