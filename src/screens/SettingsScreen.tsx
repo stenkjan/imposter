@@ -2,6 +2,7 @@ import type { Lang, Translate } from '../game/i18n'
 import { CATEGORIES } from '../game/words'
 import { maxImposters, recommendedImposters, type Settings } from '../game/state'
 import { Segmented, Toggle, TopBar } from '../components/ui'
+import { IconPlay } from '../components/icons'
 
 const ROUND_CHOICES = [1, 3, 5, 8]
 const TIMER_CHOICES = [0, 60, 90, 120, 180]
@@ -113,11 +114,10 @@ export function SettingsScreen({
             <button
               className="btn-quiet"
               style={{ minHeight: 0, fontSize: 13 }}
-              onClick={() =>
-                patch({
-                  categoryIds: allSelected ? [CATEGORIES[0].id] : CATEGORIES.map((c) => c.id),
-                })
-              }
+              // Only ever adds. A button labelled "Alle" that silently drops
+              // nine categories would be a trap; narrowing is done per chip.
+              disabled={allSelected}
+              onClick={() => patch({ categoryIds: CATEGORIES.map((c) => c.id) })}
             >
               {t('selectAll')}
             </button>
@@ -151,6 +151,7 @@ export function SettingsScreen({
 
       <div className="actions">
         <button className="btn btn-go" onClick={onStart}>
+          <IconPlay />
           {t('startGame')}
         </button>
       </div>

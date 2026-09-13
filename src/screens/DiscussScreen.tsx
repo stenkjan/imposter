@@ -16,7 +16,9 @@ export function DiscussScreen({
   onVote: () => void
 }) {
   const { round, settings } = state
-  const [running, setRunning] = useState(false)
+  // Starts by itself, like the online room does — one tap less, and the two
+  // modes behave the same.
+  const [running, setRunning] = useState(settings.timerSeconds > 0)
   const { remaining } = useCountdown(settings.timerSeconds, running, () => {
     setRunning(false)
     buzz([80, 60, 80])
@@ -60,7 +62,7 @@ export function DiscussScreen({
             }}
             disabled={over}
           >
-            {running ? t('pause') : remaining === settings.timerSeconds ? t('startTimer') : t('resume')}
+            {running ? t('pause') : t('resume')}
           </button>
         </div>
       )}

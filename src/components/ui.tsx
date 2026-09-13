@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { portraitFor } from '../game/portraits'
+import { IconBack } from './icons'
 import { avatarColor, initials } from './Characters'
 
 export function TopBar({
@@ -17,7 +18,7 @@ export function TopBar({
     <div className="topbar">
       {onBack && (
         <button className="icon-btn" onClick={onBack} aria-label="Back">
-          ‹
+          <IconBack />
         </button>
       )}
       <h1>{title}</h1>

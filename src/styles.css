@@ -1355,3 +1355,26 @@ ul {
   font-weight: 500;
   color: var(--text-faint);
 }
+
+.badge.host {
+  padding: 4px 8px;
+  color: var(--amber);
+}
+
+.link-field {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ink-500);
+  background: var(--ink-800);
+  color: var(--text);
+  font-size: 15px;
+  user-select: all;
+  -webkit-user-select: all;
+}
+
+.link-field:focus {
+  outline: none;
+  border-color: var(--green);
+}

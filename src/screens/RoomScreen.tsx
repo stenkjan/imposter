@@ -5,7 +5,16 @@ import { Crew } from '../components/Characters'
 import { RoleCard } from '../components/RoleCard'
 import { CareerSheet } from '../components/CareerSheet'
 import { recordGame } from '../game/leaderboard'
-import { Avatar, TopBar } from '../components/ui'
+import { Avatar, Sheet, TopBar } from '../components/ui'
+import {
+  IconCheck,
+  IconCrown,
+  IconExit,
+  IconGear,
+  IconShare,
+  IconVote,
+} from '../components/icons'
+import { roomLink, shareRoom } from '../online/share'
 import { buzz, useCountdown } from '../hooks'
 import { SettingsScreen } from './SettingsScreen'
 
@@ -39,7 +48,7 @@ function RoomBar({ t, view, live, act, onLeave, step }: Omit<Props, 'error'> & {
         step={step}
         right={
           <button className="icon-btn" onClick={onLeave} aria-label={t('leaveRoom')}>
-            ⏻
+            <IconExit />
           </button>
         }
       />
@@ -83,8 +92,8 @@ function PlayerRow({
         {player.id === view.youId && ' ·'}
       </span>
       {isHost && (
-        <span className="badge" aria-label={t('youAreHost')}>
-          ★
+        <span className="badge host" aria-label={t('youAreHost')}>
+          <IconCrown />
         </span>
       )}
       {!player.online && <span className="tag-faint">{t('offlineTag')}</span>}
@@ -106,22 +115,16 @@ function PlayerRow({
 
 function Lobby({ t, view, live, error, act, onLeave }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [shared, setShared] = useState<'idle' | 'copied' | 'manual'>('idle')
   const youAreHost = view.youId === view.hostId
   const host = byId(view, view.hostId)
 
   const share = async () => {
-    const url = `${location.origin}/?room=${view.code}`
-    try {
-      if (navigator.share) await navigator.share({ title: 'Imposter', url })
-      else {
-        await navigator.clipboard.writeText(url)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1800)
-      }
-    } catch {
-      /* the user dismissed the share sheet */
-    }
+    buzz()
+    const result = await shareRoom(view.code, t('appName'))
+    if (result === 'manual') return setShared('manual')
+    setShared('copied')
+    window.setTimeout(() => setShared((s) => (s === 'copied' ? 'idle' : s)), 2200)
   }
 
   if (settingsOpen && youAreHost) {
@@ -145,7 +148,19 @@ function Lobby({ t, view, live, error, act, onLeave }: Props) {
       <button className="code-plate" onClick={() => void share()}>
         <small>{t('roomCode')}</small>
         <strong>{view.code}</strong>
-        <span className="badge">{copied ? t('copied') : t('shareRoom')}</span>
+        <span className="badge">
+          {shared === 'copied' ? (
+            <>
+              <IconCheck size={15} />
+              {t('linkCopied')}
+            </>
+          ) : (
+            <>
+              <IconShare size={15} />
+              {t('shareRoom')}
+            </>
+          )}
+        </span>
       </button>
 
       <div className="scroll">
@@ -163,9 +178,32 @@ function Lobby({ t, view, live, error, act, onLeave }: Props) {
         {error && <p className="hint warn">{t(error as never)}</p>}
       </div>
 
+      {shared === 'manual' && (
+        <Sheet title={t('shareRoom')} onClose={() => setShared('idle')}>
+          <p className="hint" style={{ textAlign: 'left', marginBottom: 10 }}>
+            {t('copyManual')}
+          </p>
+          <input
+            className="link-field"
+            readOnly
+            value={roomLink(view.code)}
+            onFocus={(e) => e.currentTarget.select()}
+            aria-label={t('shareRoom')}
+          />
+          <button
+            className="btn btn-ghost"
+            style={{ marginTop: 14 }}
+            onClick={() => setShared('idle')}
+          >
+            {t('close')}
+          </button>
+        </Sheet>
+      )}
+
       <div className="actions">
         {youAreHost ? (
           <button className="btn btn-go" onClick={() => setSettingsOpen(true)}>
+            <IconGear />
             {t('settings')}
           </button>
         ) : (
@@ -342,6 +380,7 @@ function Discuss({ t, view, live, act, onLeave }: Props) {
       <div className="actions">
         {youAreHost ? (
           <button className="btn btn-primary" onClick={() => act({ type: 'toVote' })}>
+            <IconVote />
             {t('toVote')}
           </button>
         ) : (
