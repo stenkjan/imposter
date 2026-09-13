@@ -13,8 +13,11 @@ import {
   authorize,
   clampSettings,
   fail,
+  forgetPresence,
+  handOverHost,
   keysFor,
   loadRoom,
+  presentPlayers,
   saveRoom,
   touchPresence,
   versionKey,
@@ -44,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!authorize(room, playerId, token)) return fail(res, 403, 'not-a-member')
 
   const isHost = room.hostId === playerId
-  await touchPresence(code, playerId)
+  if (action.type !== 'leave') await touchPresence(code, playerId)
 
   try {
     const changed = await apply(room, playerId, isHost, action)
@@ -106,6 +109,27 @@ async function apply(
       const lock = keysFor.lockKey(room.code, `tally:${game.round.index}:${game.round.pass}`)
       if (!(await kv.claim(lock, 15))) return false
       room.game = reduce(game, { type: 'eject', playerId: tally(votes) })
+      return true
+    }
+
+    case 'leave': {
+      const present = await presentPlayers(room.code)
+      present.delete(playerId)
+      await forgetPresence(room.code, playerId)
+      // Mid-game the seat stays, because the round still refers to it.
+      if (!game) {
+        room.players = room.players.filter((p) => p.id !== playerId)
+        delete room.secrets[playerId]
+      }
+      handOverHost(room, playerId, present)
+      return true
+    }
+
+    case 'claimHost': {
+      if (isHost) return false
+      const present = await presentPlayers(room.code)
+      if (present.has(room.hostId)) throw new Error('host-present')
+      room.hostId = playerId
       return true
     }
 

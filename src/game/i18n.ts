@@ -151,6 +151,17 @@ const de = {
   kickPlayer: 'Entfernen',
   hostOnly: 'Das macht der Gastgeber',
 
+  career: 'Ewige Tabelle',
+  careerEmpty: 'Noch keine Partie gespielt',
+  careerGame: 'Partie',
+  careerGames: 'Partien',
+  careerWin: 'Sieg',
+  careerWins: 'Siege',
+  careerReset: 'Tabelle zurücksetzen',
+  careerResetConfirm: 'Wirklich löschen?',
+  takeOverHost: 'Gastgeber übernehmen',
+  hostAway: '{name} ist weg',
+
   civilian: 'Zivilist',
   imposter: 'Imposter',
 } as const
@@ -293,6 +304,17 @@ const en: Dict = {
   offlineTag: 'away',
   kickPlayer: 'Remove',
   hostOnly: 'The host does that',
+
+  career: 'All-time table',
+  careerEmpty: 'No game played yet',
+  careerGame: 'game',
+  careerGames: 'games',
+  careerWin: 'win',
+  careerWins: 'wins',
+  careerReset: 'Reset table',
+  careerResetConfirm: 'Really delete?',
+  takeOverHost: 'Take over as host',
+  hostAway: '{name} is away',
 
   civilian: 'Civilian',
   imposter: 'Imposter',

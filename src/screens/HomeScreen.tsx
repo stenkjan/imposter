@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Lang, Translate } from '../game/i18n'
 import { LANG_LABEL, LANGS } from '../game/i18n'
 import { Crew, Mark } from '../components/Characters'
+import { CareerSheet } from '../components/CareerSheet'
 import { Segmented, Sheet } from '../components/ui'
 
 export function HomeScreen({
@@ -18,6 +19,7 @@ export function HomeScreen({
   onOnline: () => void
 }) {
   const [rules, setRules] = useState(false)
+  const [career, setCareer] = useState(false)
 
   return (
     <div className="screen">
@@ -61,10 +63,17 @@ export function HomeScreen({
       </div>
 
       <div className="actions">
-        <button className="btn btn-quiet" onClick={() => setRules(true)}>
-          {t('howToPlay')}
-        </button>
+        <div className="quiet-row">
+          <button className="btn btn-quiet" onClick={() => setRules(true)}>
+            {t('howToPlay')}
+          </button>
+          <button className="btn btn-quiet" onClick={() => setCareer(true)}>
+            {t('career')}
+          </button>
+        </div>
       </div>
+
+      {career && <CareerSheet t={t} onClose={() => setCareer(false)} />}
 
       {rules && (
         <Sheet title={t('rulesTitle')} onClose={() => setRules(false)}>

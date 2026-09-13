@@ -3,6 +3,8 @@ import type { Translate } from '../game/i18n'
 import type { ClientAction, PlayerView, RoomView } from '../online/protocol'
 import { Crew } from '../components/Characters'
 import { RoleCard } from '../components/RoleCard'
+import { CareerSheet } from '../components/CareerSheet'
+import { recordGame } from '../game/leaderboard'
 import { Avatar, TopBar } from '../components/ui'
 import { buzz, useCountdown } from '../hooks'
 import { SettingsScreen } from './SettingsScreen'
@@ -23,8 +25,13 @@ const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, 
 const byId = (view: RoomView, id: string | null) =>
   id ? (view.players.find((p) => p.id === id) ?? null) : null
 
-/** Small persistent header: room code, connection health, exit. */
-function RoomBar({ t, view, live, onLeave, step }: Omit<Props, 'act' | 'error'> & { step?: string }) {
+/** Room code, connection health, exit — and the offer to take over a room
+ *  whose host has walked off with the pacing buttons. */
+function RoomBar({ t, view, live, act, onLeave, step }: Omit<Props, 'error'> & { step?: string }) {
+  const host = byId(view, view.hostId)
+  const hostAway = Boolean(host && !host.online)
+  const youAreHost = view.youId === view.hostId
+
   return (
     <>
       <TopBar
@@ -37,6 +44,14 @@ function RoomBar({ t, view, live, onLeave, step }: Omit<Props, 'act' | 'error'> 
         }
       />
       {!live && <p className="hint">{t('connecting')}…</p>}
+      {hostAway && !youAreHost && (
+        <div className="notice">
+          <span>{t('hostAway', { name: host?.name ?? '' })}</span>
+          <button className="btn btn-ghost" onClick={() => act({ type: 'claimHost' })}>
+            {t('takeOverHost')}
+          </button>
+        </div>
+      )}
     </>
   )
 }
@@ -125,7 +140,7 @@ function Lobby({ t, view, live, error, act, onLeave }: Props) {
 
   return (
     <div className="screen">
-      <RoomBar t={t} view={view} live={live} onLeave={onLeave} />
+      <RoomBar t={t} view={view} live={live} act={act} onLeave={onLeave} />
 
       <button className="code-plate" onClick={() => void share()}>
         <small>{t('roomCode')}</small>
@@ -176,6 +191,7 @@ function Reveal({ t, view, live, act, onLeave }: Props) {
           t={t}
           view={view}
           live={live}
+          act={act}
           onLeave={onLeave}
           step={t('round', { n: round.index + 1, total: round.rounds })}
         />
@@ -201,6 +217,7 @@ function Reveal({ t, view, live, act, onLeave }: Props) {
         t={t}
         view={view}
         live={live}
+        act={act}
         onLeave={onLeave}
         step={t('round', { n: round.index + 1, total: round.rounds })}
       />
@@ -263,6 +280,7 @@ function Discuss({ t, view, live, act, onLeave }: Props) {
         t={t}
         view={view}
         live={live}
+        act={act}
         onLeave={onLeave}
         step={t('round', { n: round.index + 1, total: round.rounds })}
       />
@@ -346,6 +364,7 @@ function Vote({ t, view, live, act, onLeave }: Props) {
         t={t}
         view={view}
         live={live}
+        act={act}
         onLeave={onLeave}
         step={t('round', { n: round.index + 1, total: round.rounds })}
       />
@@ -396,6 +415,7 @@ function Ejected({ t, view, live, act, onLeave }: Props) {
         t={t}
         view={view}
         live={live}
+        act={act}
         onLeave={onLeave}
         step={t('round', { n: round.index + 1, total: round.rounds })}
       />
@@ -440,6 +460,7 @@ function LastChance({ t, view, live, act, onLeave }: Props) {
         t={t}
         view={view}
         live={live}
+        act={act}
         onLeave={onLeave}
         step={t('round', { n: round.index + 1, total: round.rounds })}
       />
@@ -498,6 +519,12 @@ function Scores({ t, view }: { t: Translate; view: RoomView }) {
 function RoundEnd({ t, view, live, act, onLeave }: Props) {
   const round = view.round!
   const last = round.phase === 'gameEnd'
+  const [career, setCareer] = useState(false)
+
+  useEffect(() => {
+    if (last && view.gameId) recordGame(view.gameId, view.players)
+  }, [last, view.gameId, view.players])
+
   const impostersWon = round.outcome === 'imposters'
   const youAreHost = view.youId === view.hostId
   const host = byId(view, view.hostId)
@@ -512,6 +539,7 @@ function RoundEnd({ t, view, live, act, onLeave }: Props) {
         t={t}
         view={view}
         live={live}
+        act={act}
         onLeave={onLeave}
         step={t('round', { n: round.index + 1, total: round.rounds })}
       />
@@ -555,7 +583,14 @@ function RoundEnd({ t, view, live, act, onLeave }: Props) {
         ) : (
           <p className="hint">{t('waitingForHost', { name: host?.name ?? '' })}</p>
         )}
+        {last && (
+          <button className="btn btn-quiet" onClick={() => setCareer(true)}>
+            {t('career')}
+          </button>
+        )}
       </div>
+
+      {career && <CareerSheet t={t} onClose={() => setCareer(false)} />}
     </div>
   )
 }

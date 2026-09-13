@@ -92,6 +92,17 @@ export function authorize(room: Room, playerId: string, token: string): boolean 
   return Boolean(playerId) && room.secrets[playerId] === token
 }
 
+/**
+ * Hands the room over when the host walks out. Someone still on their phone is
+ * preferred; otherwise the next person in the roster inherits it.
+ */
+export function handOverHost(room: Room, leaving: string, present: Set<string>): void {
+  if (room.hostId !== leaving) return
+  const others = room.players.filter((p) => p.id !== leaving)
+  const successor = others.find((p) => present.has(p.id)) ?? others[0]
+  if (successor) room.hostId = successor.id
+}
+
 export const clampSettings = (settings: Settings, playerCount: number): Settings => ({
   ...settings,
   imposters: Math.min(Math.max(1, settings.imposters), maxImposters(Math.max(playerCount, 3))),
@@ -105,7 +116,12 @@ export async function touchPresence(code: string, playerId: string) {
   await kv.expire(seenKey(code), ROOM_TTL)
 }
 
-async function presentPlayers(code: string): Promise<Set<string>> {
+/** Marks someone as gone right now instead of waiting for presence to lapse. */
+export async function forgetPresence(code: string, playerId: string) {
+  await kv.hset(seenKey(code), playerId, '0')
+}
+
+export async function presentPlayers(code: string): Promise<Set<string>> {
   const seen = await kv.hgetall(seenKey(code))
   const cutoff = Date.now() - PRESENCE_TTL * 1000
   return new Set(Object.entries(seen).filter(([, at]) => Number(at) > cutoff).map(([id]) => id))
@@ -145,6 +161,7 @@ export async function viewFor(room: Room, playerId: string, version: number): Pr
     hostId: room.hostId,
     youId: playerId,
     stage: game ? 'game' : 'lobby',
+    gameId: game?.id ?? null,
     version,
     round: game ? roundView(game, room, playerId, votes) : null,
   }

@@ -56,7 +56,8 @@ src/
   game/i18n.ts       Übersetzungen, typsicher über den deutschen Schlüsselsatz
   online/protocol.ts Wire-Format, von Client und API geteilt
   online/client.ts   fetch-Wrapper und der EventSource-Hook
-  game/portraits.ts  Rollenbilder und die Namen-Portraits (Easter Egg)
+  game/portraits.ts  Rollenbilder, Namens-Portraits und die Gast-Heuristik
+  game/leaderboard.ts  ewige Tabelle, pro Gerät, über beide Spielarten
   components/RoleCard.tsx  verdeckte Karte, Flip-Animation, Bild
   screens/           ein Screen pro Phase, lokal wie online
 api/
@@ -82,6 +83,23 @@ sie in 3D auf das Bild für die eigene Rolle. Die Rückseite ist fuer beide Roll
 identisch, damit der Bildschirm vorher nichts verrät. Eigene Portraits für
 bestimmte Namen trägt man in `src/game/portraits.ts` ein – das Bild erscheint dann
 über dem Namen statt der Initiale.
+
+**Portraits** matchen breit: Großschreibung, Umlaute und Satzzeichen sind egal, und
+nur das erste Namenstoken zählt. „Jan“, „JAN“ und „Jan-Andre“ landen also auf
+demselben Bild, „Janine“ bleibt fremd. Wer kein eigenes Bild hat, bekommt eines von
+zwei Gast-Portraits; welches, entscheidet eine Namensheuristik – die liegt manchmal
+daneben, dagegen hilft ein Eintrag in `ALIASES`. Dieselben Bilder erscheinen als
+Avatar-Bubble in jeder Liste: Lobby, Abstimmung, Rundenwertung, Endstand.
+
+**Zwei Tabellen:** der Endstand einer Partie und die **ewige Tabelle**, die jede
+beendete Partie mitzählt – Punkte, Partien, Siege. Sie liegt im localStorage des
+Geräts, gilt für beide Spielarten und wird über eine Spiel-ID gegen Doppelzählung
+abgesichert. Erreichbar vom Startmenü und von jedem Endstand.
+
+**Der Gastgeber wandert mit.** Verlässt er den Raum, erbt ihn jemand, der gerade am
+Handy ist; mitten im Spiel bleibt sein Platz stehen, damit die Runde nicht
+auseinanderfällt. Ist er einfach weg, ohne sich abzumelden, kann ihn nach rund
+anderthalb Minuten jede:r andere übernehmen.
 
 Mobile-First: `100dvh`, `env(safe-area-inset-*)`, Touchziele ≥ 52 px, 16-px-Inputs
 (kein iOS-Zoom), `clamp()`-Typografie, PWA-Manifest plus Service Worker.
@@ -109,5 +127,4 @@ Drei bewusste Kompromisse:
 
 - [ ] Eigene Wortlisten
 - [ ] Mehrere Hinweisrunden pro Wort konfigurierbar
-- [ ] Gastgeber-Rolle weitergeben, wenn der Host das Spiel verlässt
 - [ ] QR-Code für den Raum-Beitritt

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { portraitFor } from '../game/portraits'
 import { avatarColor, initials } from './Characters'
 
 export function TopBar({
@@ -26,20 +27,37 @@ export function TopBar({
   )
 }
 
+/**
+ * Everyone has a face: a drawn portrait where one exists, a guest portrait
+ * otherwise. The coloured initials stay as the fallback for the moment before
+ * the picture loads and for the rare case where it never does.
+ */
 export function Avatar({ name, size = 32 }: { name: string; size?: number }) {
+  const [failed, setFailed] = useState(false)
+  const style = {
+    background: avatarColor(name),
+    width: size,
+    height: size,
+    fontSize: Math.round(size * 0.42),
+  }
+
+  if (failed) {
+    return (
+      <span className="avatar" style={style} aria-hidden="true">
+        {initials(name)}
+      </span>
+    )
+  }
+
   return (
-    <span
+    <img
       className="avatar"
-      style={{
-        background: avatarColor(name),
-        width: size,
-        height: size,
-        fontSize: Math.round(size * 0.42),
-      }}
-      aria-hidden="true"
-    >
-      {initials(name)}
-    </span>
+      src={portraitFor(name)}
+      style={style}
+      onError={() => setFailed(true)}
+      alt=""
+      draggable={false}
+    />
   )
 }
 

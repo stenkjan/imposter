@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Lang, Translate } from '../game/i18n'
 import {
   isImposter,
@@ -9,6 +10,7 @@ import {
   type GameState,
 } from '../game/state'
 import { Crew } from '../components/Characters'
+import { CareerSheet } from '../components/CareerSheet'
 import { Avatar, TopBar } from '../components/ui'
 
 function ScoreList({ state, t }: { state: GameState; t: Translate }) {
@@ -187,6 +189,7 @@ export function GameEndScreen({
   onPlayAgain: () => void
   onNewLineup: () => void
 }) {
+  const [career, setCareer] = useState(false)
   const top = winners(state.players)
   const title = top.length === 1 ? t('winnerIs', { name: top[0].name }) : t('itIsATie')
 
@@ -212,10 +215,15 @@ export function GameEndScreen({
         <button className="btn btn-go" onClick={onPlayAgain}>
           {t('playAgain')}
         </button>
+        <button className="btn btn-quiet" onClick={() => setCareer(true)}>
+          {t('career')}
+        </button>
         <button className="btn btn-quiet" onClick={onNewLineup}>
           {t('newLineup')}
         </button>
       </div>
+
+      {career && <CareerSheet t={t} onClose={() => setCareer(false)} />}
     </div>
   )
 }

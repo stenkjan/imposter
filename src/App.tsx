@@ -13,7 +13,8 @@ import {
 } from './game/state'
 import { CATEGORIES } from './game/words'
 import { usePersisted } from './hooks'
-import { loadCredentials, snapshot, storeCredentials, useRoom } from './online/client'
+import { loadCredentials, sendAction, snapshot, storeCredentials, useRoom } from './online/client'
+import { recordGame } from './game/leaderboard'
 import { isValidCode, type Credentials } from './online/protocol'
 import { HomeScreen } from './screens/HomeScreen'
 import { PlayersScreen } from './screens/PlayersScreen'
@@ -91,13 +92,26 @@ export default function App() {
     }
   }, [invite])
 
-  const leaveRoom = useCallback(() => {
+  /** The room is gone or we were thrown out: just forget it. */
+  const dropRoom = useCallback(() => {
     storeCredentials(null)
     setCreds(null)
     setRoute('home')
   }, [])
 
-  const room = useRoom(creds, leaveRoom)
+  /** Deliberate exit: tell the room first, so the host role can move on. */
+  const leaveRoom = useCallback(() => {
+    const saved = loadCredentials()
+    if (saved) void sendAction(saved, { type: 'leave' }).catch(() => {})
+    dropRoom()
+  }, [dropRoom])
+
+  const room = useRoom(creds, dropRoom)
+
+  // A finished game counts once towards the all-time table.
+  useEffect(() => {
+    if (game?.phase === 'gameEnd') recordGame(game.id, game.players)
+  }, [game?.phase, game?.id, game?.players])
 
   // ------------------------------------------------------------ local game
 

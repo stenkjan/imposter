@@ -49,6 +49,8 @@ export type Round = {
 }
 
 export type GameState = {
+  /** Unique per game, so the all-time table cannot count one twice. */
+  id: string
   settings: Settings
   players: Player[]
   round: Round
@@ -136,9 +138,13 @@ export function makeRound(
   }
 }
 
+const newGameId = () =>
+  `g_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+
 export function createGame(players: Player[], settings: Settings): GameState {
   const round = makeRound(0, players, settings, [])
   return {
+    id: newGameId(),
     settings,
     players: players.map((p) => ({ ...p, score: 0 })),
     round,

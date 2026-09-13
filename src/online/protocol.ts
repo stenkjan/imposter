@@ -46,6 +46,8 @@ export type RoomView = {
   hostId: string
   youId: string
   stage: 'lobby' | 'game'
+  /** Identifies the running game for the all-time table; null in the lobby. */
+  gameId: string | null
   round: RoundView | null
   version: number
 }
@@ -64,6 +66,9 @@ export type ClientAction =
   | { type: 'nextRound' }
   | { type: 'restart' }
   | { type: 'kick'; playerId: string }
+  // Anyone may leave; anyone may take over when the host has gone away.
+  | { type: 'leave' }
+  | { type: 'claimHost' }
 
 export type Credentials = { code: string; playerId: string; token: string }
 

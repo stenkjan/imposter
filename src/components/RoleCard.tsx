@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { Translate } from '../game/i18n'
-import { portraitFor, preloadRoleArt, ROLE_ART } from '../game/portraits'
+import { preloadRoleArt, ROLE_ART } from '../game/portraits'
 import { Avatar } from './ui'
 
 /**
@@ -30,16 +30,11 @@ export function RoleCard({
   noHint?: boolean
 }) {
   useEffect(preloadRoleArt, [])
-  const portrait = portraitFor(name)
 
   return (
     <>
       <div className="who-plate">
-        {portrait ? (
-          <img className="portrait" src={portrait} alt="" />
-        ) : (
-          <Avatar name={name} size={52} />
-        )}
+        <Avatar name={name} size={56} />
         <span className="who-name">{name}</span>
       </div>
 
