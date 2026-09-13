@@ -2,7 +2,7 @@ import type { Lang, Translate } from '../game/i18n'
 import { CATEGORIES } from '../game/words'
 import { maxImposters, recommendedImposters, type Settings } from '../game/state'
 import { Segmented, Toggle, TopBar } from '../components/ui'
-import { IconPlay } from '../components/icons'
+import { IconCheck, IconPlay } from '../components/icons'
 
 const ROUND_CHOICES = [1, 3, 5, 8]
 const TIMER_CHOICES = [0, 60, 90, 120, 180]
@@ -17,6 +17,10 @@ export function SettingsScreen({
   onSettings,
   onBack,
   onStart,
+  startLabel,
+  startIcon = 'play',
+  startDisabled = false,
+  startHint,
 }: {
   t: Translate
   lang: Lang
@@ -25,6 +29,11 @@ export function SettingsScreen({
   onSettings: (next: Settings) => void
   onBack: () => void
   onStart: () => void
+  /** Im Online-Raum schliesst der Knopf nur die Einstellungen. */
+  startLabel?: string
+  startIcon?: 'play' | 'check'
+  startDisabled?: boolean
+  startHint?: string
 }) {
   const cap = maxImposters(playerCount)
   const imposterChoices = Array.from({ length: cap }, (_, i) => i + 1)
@@ -150,9 +159,10 @@ export function SettingsScreen({
       </div>
 
       <div className="actions">
-        <button className="btn btn-go" onClick={onStart}>
-          <IconPlay />
-          {t('startGame')}
+        {startHint && <p className="hint">{startHint}</p>}
+        <button className="btn btn-go" disabled={startDisabled} onClick={onStart}>
+          {startIcon === 'check' ? <IconCheck /> : <IconPlay />}
+          {startLabel ?? t('startGame')}
         </button>
       </div>
     </div>

@@ -5,12 +5,14 @@ import { Crew } from '../components/Characters'
 import { RoleCard } from '../components/RoleCard'
 import { CareerSheet } from '../components/CareerSheet'
 import { recordGame } from '../game/leaderboard'
+import { MIN_PLAYERS } from '../game/state'
 import { Avatar, Sheet, TopBar } from '../components/ui'
 import {
   IconCheck,
   IconCrown,
   IconExit,
   IconGear,
+  IconPlay,
   IconShare,
   IconVote,
 } from '../components/icons'
@@ -118,6 +120,7 @@ function Lobby({ t, view, live, error, act, onLeave }: Props) {
   const [shared, setShared] = useState<'idle' | 'copied' | 'manual'>('idle')
   const youAreHost = view.youId === view.hostId
   const host = byId(view, view.hostId)
+  const tooFew = view.players.length < MIN_PLAYERS
 
   const share = async () => {
     buzz()
@@ -127,6 +130,7 @@ function Lobby({ t, view, live, error, act, onLeave }: Props) {
     window.setTimeout(() => setShared((s) => (s === 'copied' ? 'idle' : s)), 2200)
   }
 
+  // Aenderungen greifen sofort, der Knopf schliesst nur wieder.
   if (settingsOpen && youAreHost) {
     return (
       <SettingsScreen
@@ -136,7 +140,9 @@ function Lobby({ t, view, live, error, act, onLeave }: Props) {
         settings={view.settings}
         onSettings={(settings) => act({ type: 'settings', settings })}
         onBack={() => setSettingsOpen(false)}
-        onStart={() => act({ type: 'start' })}
+        onStart={() => setSettingsOpen(false)}
+        startLabel={t('done')}
+        startIcon="check"
       />
     )
   }
@@ -202,10 +208,21 @@ function Lobby({ t, view, live, error, act, onLeave }: Props) {
 
       <div className="actions">
         {youAreHost ? (
-          <button className="btn btn-go" onClick={() => setSettingsOpen(true)}>
-            <IconGear />
-            {t('settings')}
-          </button>
+          <>
+            {tooFew && <p className="hint">{t('needMorePlayers', { n: MIN_PLAYERS })}</p>}
+            <button
+              className="btn btn-go"
+              disabled={tooFew}
+              onClick={() => act({ type: 'start' })}
+            >
+              <IconPlay />
+              {t('startGame')}
+            </button>
+            <button className="btn btn-quiet" onClick={() => setSettingsOpen(true)}>
+              <IconGear size={16} />
+              {t('settings')}
+            </button>
+          </>
         ) : (
           <p className="hint">{t('hostStarts', { name: host?.name ?? '' })}</p>
         )}

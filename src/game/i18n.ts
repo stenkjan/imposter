@@ -19,6 +19,7 @@ const de = {
   next: 'Weiter',
   howToPlay: 'So wird gespielt',
   close: 'Schließen',
+  done: 'Fertig',
   language: 'Sprache',
 
   // Rules
@@ -183,6 +184,7 @@ const en: Dict = {
   next: 'Next',
   howToPlay: 'How to play',
   close: 'Close',
+  done: 'Done',
   language: 'Language',
 
   rulesTitle: 'How to play',
