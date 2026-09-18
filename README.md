@@ -25,14 +25,23 @@ npm run build
 npm run preview
 npm run icons    # PNG-Icons neu rendern
 
+npm run test:rules                           # Spielregeln, ohne Server
 npm run test:live                            # Abnahmelauf gegen die Produktion
 npm run test:live -- http://localhost:5173   # ... oder gegen den Dev-Server
 ```
 
+`scripts/rules.mjs` prüft die Regeln selbst, mit geseedetem Zufall und ohne Netz:
+dass dreimal hintereinander Imposter selten bleibt, dass der Imposter nicht ständig
+anfangen oder abschließen muss, dass die Uhr weiterläuft statt neu zu starten und
+dass kein Punkt auf einem Konto landet, bevor die Runde vorbei ist. Es lädt die
+TypeScript-Module über Vites SSR-Loader und braucht deshalb keinen Testrunner.
+
 `scripts/acceptance.mjs` spielt eine komplette Online-Partie durch und prüft dabei
 das, was man beim Klicken nicht sieht: dass der Imposter das Wort nie geschickt
 bekommt, dass eine abgegebene Stimme ihr Ziel nicht verrät, dass nur der Gastgeber
-die Runde taktet und dass der Stream innerhalb einer Sekunde pusht.
+die Runde taktet, dass eine neue Partie nicht die Bereit-Meldungen der alten erbt,
+dass ein abgesprungenes Handy seinen Platz zurückbekommt und dass der Stream
+innerhalb einer Sekunde pusht.
 
 Der Dev-Server bindet auf alle Interfaces, also lässt sich `http://<LAN-IP>:5173`
 direkt am Handy öffnen. **Der Online-Modus funktioniert lokal ohne jede Cloud:**
@@ -43,17 +52,52 @@ Auf Vercel ist dieser Fallback gesperrt – dort sind fehlende Credentials ein F
 ## Spielablauf
 
 1. **Startmenü** – Sprache, dann Spielart wählen.
-2. **Einstellungen** – Anzahl Imposter, Kategorie-Hinweis für den Imposter, Runden,
-   Diskussions-Timer, „Letzte Chance", Wortkategorien. Online stellt das der Gastgeber.
-3. **Karten** – jede:r deckt einmal auf.
-4. **Diskussion** – Startspieler:in, Reihenfolge, optionaler Timer.
-5. **Abstimmung** – eine Person fliegt raus, ihre Rolle wird aufgedeckt. Nur ihre.
-6. Zivilisten gewinnen, wenn alle Imposter draußen sind; Imposter gewinnen, sobald sie
-   gleich viele sind wie der Rest. Sonst geht die Diskussion mit den Übriggebliebenen weiter.
-7. **Punkte** nach jeder Runde, Endstand nach der letzten.
+2. **Aufstellung** – die Reihenfolge der Liste ist die Reihenfolge am Tisch; Pfeile
+   stellen um. Online macht das der Gastgeber in der Lobby.
+3. **Einstellungen** – Anzahl Imposter, Kategorie-Hinweis, Runden, Uhr (1–5 Minuten),
+   „Letzte Chance", Reihenfolge, Fairness, Punkte, Wortkategorien. Online stellt das
+   der Gastgeber.
+4. **Karten** – jede:r deckt einmal auf.
+5. **Diskussion** – Startspieler:in, Reihenfolge, die Rundenuhr.
+6. **Abstimmung** – eine Person fliegt raus, ihre Rolle wird aufgedeckt. Nur ihre.
+7. **Patt** – hat die Abstimmung nichts entschieden, wählt der Gastgeber: *Neue
+   Wortrunde* oder *Direkt abstimmen*. Die Uhr läuft dabei weiter.
+8. Zivilisten gewinnen, wenn alle Imposter draußen sind; Imposter gewinnen, sobald sie
+   gleich viele sind wie der Rest.
+9. **Punkte** nach jeder Runde, Endstand nach der letzten.
 
-Punkte: Zivilisten +2 pro gewonnener Runde, Imposter +3 fürs Überleben.
-Errät ein erwischter Imposter das Wort, bekommt er +2 und die Zivilisten nur +1.
+## Punkte
+
+Jede Zeile ist in den Einstellungen einstellbar; 0 schaltet sie ab.
+
+| Wofür | Wer | Standard |
+|---|---|---|
+| Stimme landet auf einem Imposter | der Zivilist, der getippt hat | +1 |
+| Abstimmung überstanden | jeder noch lebende Imposter | +1 pro Abstimmung |
+| Wort bei „Letzte Chance" erraten | der erwischte Imposter | +1 |
+| Die Uhr erzwingt die Abstimmung | jeder noch lebende Imposter | +1 |
+| Runde gewonnen | die siegreiche Seite | 0 (aus) |
+
+**Gebucht wird während der Runde, ausgezahlt erst danach.** Ein Punktestand, der mitten
+in der Runde steigt, würde verraten, wer richtig getippt hat – deshalb sammelt die Runde
+ihre Punkte in `round.earned` und schreibt sie erst am Rundenende gut. Die Wertung zeigt
+dann neben jedem Namen, was die Runde eingebracht hat.
+
+## Weniger Zufall
+
+Reiner Zufall ist oft genug unfair, dass es am Tisch auffällt. Drei Stellschrauben,
+alle abschaltbar:
+
+- **Imposter-Rotation.** Wer die Karte gerade hatte, wiegt in der nächsten Ziehung ein
+  Viertel, wer sie zweimal hatte ein Sechzehntel. Bei fünf Leuten fällt „zweimal
+  hintereinander" damit von 20 % auf rund 6 %, dreimal hintereinander wird zur
+  Ausnahme – bleibt aber möglich, sonst wäre es keine Ziehung mehr.
+- **Randplätze.** Anfangen heißt ohne Anhaltspunkt reden, abschließen heißt gegen fünf
+  Hinweise anreden; beides trifft den Imposter härter als alle anderen. Er wird deshalb
+  mit einstellbarer Wahrscheinlichkeit aus dem ersten und letzten Stuhl geschoben –
+  nicht immer, sonst wäre der Startplatz selbst die Auskunft.
+- **Reihenfolge.** *Rotierend* behält die Aufstellung bei und rückt den Start jede Runde
+  einen Platz weiter, *Fix* nimmt sie genau so, *Zufall* mischt neu.
 
 ## Architektur
 
@@ -65,8 +109,10 @@ src/
   online/protocol.ts Wire-Format, von Client und API geteilt
   online/client.ts   fetch-Wrapper und der EventSource-Hook
   game/portraits.ts  Rollenbilder, Namens-Portraits und die Gast-Heuristik
-  game/leaderboard.ts  ewige Tabelle, pro Gerät, über beide Spielarten
+  game/fairness.ts   gewichtete Ziehung und Sitzordnung, rein und testbar
+  game/leaderboard.ts  Leaderboard, pro Gerät, über beide Spielarten
   components/RoleCard.tsx  verdeckte Karte, Flip-Animation, Bild
+  components/PortraitCard.tsx  jedes Gesicht als volle Karte, über Context
   screens/           ein Screen pro Phase, lokal wie online
 api/
   room.ts            Raum anlegen, beitreten, Snapshot
@@ -99,15 +145,41 @@ zwei Gast-Portraits; welches, entscheidet eine Namensheuristik – die liegt man
 daneben, dagegen hilft ein Eintrag in `ALIASES`. Dieselben Bilder erscheinen als
 Avatar-Bubble in jeder Liste: Lobby, Abstimmung, Rundenwertung, Endstand.
 
-**Zwei Tabellen:** der Endstand einer Partie und die **ewige Tabelle**, die jede
-beendete Partie mitzählt – Punkte, Partien, Siege. Sie liegt im localStorage des
+**Zwei Tabellen:** der Endstand einer Partie und das **Leaderboard**, das jede
+beendete Partie mitzählt – Punkte, Partien, Siege. Es liegt im localStorage des
 Geräts, gilt für beide Spielarten und wird über eine Spiel-ID gegen Doppelzählung
 abgesichert. Erreichbar vom Startmenü und von jedem Endstand.
+
+**Beide Rollenkarten werfen dasselbe Licht.** Das Imposter-Bild ist eine Wand aus
+Feuer, das Zivilisten-Bild kühles Grau – im Livetest verriet der Schein vom Handy die
+Rolle, bevor jemand ein Wort gesagt hatte. Also wird das Feuer heruntergezogen, die
+Zivilisten-Karte bekommt denselben roten Schleier, und Rahmen wie Rollenzeile sind auf
+beiden Seiten identisch. Über die obere Kartenhälfte gemittelt liegen die beiden jetzt
+rund 13 statt 60 Punkte pro Kanal auseinander.
+
+**Eine Uhr pro Wortrunde, und sie gehört dem Server.** `round.deadlineAt` ist ein
+Zeitpunkt, kein Restwert: jedes Handy zählt auf denselben Moment herunter, ein Reload
+nimmt die Uhr dort auf, wo sie war, und eine zweite Wortrunde frisst dieselben Minuten
+weiter. Läuft sie ab, ohne dass der Gastgeber abgestimmt hat, erzwingt der Server die
+Abstimmung – und die überlebenden Imposter bekommen dafür ihren Punkt.
 
 **Der Gastgeber wandert mit.** Verlässt er den Raum, erbt ihn jemand, der gerade am
 Handy ist; mitten im Spiel bleibt sein Platz stehen, damit die Runde nicht
 auseinanderfällt. Ist er einfach weg, ohne sich abzumelden, kann ihn nach rund
 anderthalb Minuten jede:r andere übernehmen.
+
+**Ein leerer Platz gehört weiter dem, der ihn hatte.** Wer rausfliegt, neu lädt oder
+das Spiel schließt, kommt mit demselben Namen an denselben Platz zurück – mitten im
+Spiel und auch von einem anderen Gerät, weil der Platz dabei ein neues Token bekommt.
+Solange jemand auf dem Platz online ist, bleibt der Name gesperrt.
+
+**Der Stream hat ein Netz unter sich.** Ein Handy, das in der Tasche einschläft, kommt
+mit einer `EventSource` zurück, die sich nie wieder verbindet – das war der Grund,
+warum im Livetest ausgerechnet der Gastgeber neu laden musste. Jetzt bewacht ein Timer
+den Stream: vier Sekunden still und der Raum wird über HTTP nachgeladen, elf Sekunden
+still und der Stream wird weggeworfen und neu aufgebaut. Jeder Wechsel zurück in den
+Vordergrund lädt sofort nach. Wo Server-Sent Events ganz blockiert sind, trägt das
+Nachladen die Partie allein.
 
 Mobile-First: `100dvh`, `env(safe-area-inset-*)`, Touchziele ≥ 52 px, 16-px-Inputs
 (kein iOS-Zoom), `clamp()`-Typografie, PWA-Manifest plus Service Worker.
@@ -134,5 +206,5 @@ Drei bewusste Kompromisse:
 ## Offen
 
 - [ ] Eigene Wortlisten
-- [ ] Mehrere Hinweisrunden pro Wort konfigurierbar
 - [ ] QR-Code für den Raum-Beitritt
+- [ ] Punkte-Voreinstellungen als benannte Profile

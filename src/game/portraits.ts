@@ -17,6 +17,7 @@ const ALIASES: Record<string, readonly string[]> = {
   eddy: ['eddy', 'eddi', 'eddie', 'edi', 'ed', 'eduard', 'edward', 'emmeram', 'emme'],
   matthias: ['matthias', 'mathias', 'matze', 'matti', 'matthi', 'voldi', 'voldemar'],
   marco: ['marco', 'marko'],
+  gabriel: ['gabriel', 'gabe'],
   lara: ['lara'],
   tobias: ['tobias', 'tobi', 'tobsi', 'toby'],
 }

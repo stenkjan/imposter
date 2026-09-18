@@ -1,39 +1,43 @@
-import { useState } from 'react'
 import type { Translate } from '../game/i18n'
-import { playerById, type GameState } from '../game/state'
+import { playerById, type Action, type GameState } from '../game/state'
 import { TopBar } from '../components/ui'
-import { buzz, useCountdown } from '../hooks'
+import { buzz, useDeadline } from '../hooks'
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
 export function DiscussScreen({
   t,
   state,
+  dispatch,
   onVote,
 }: {
   t: Translate
   state: GameState
+  dispatch: (action: Action) => void
   onVote: () => void
 }) {
   const { round, settings } = state
-  // Starts by itself, like the online room does — one tap less, and the two
-  // modes behave the same.
-  const [running, setRunning] = useState(settings.timerSeconds > 0)
-  const { remaining } = useCountdown(settings.timerSeconds, running, () => {
-    setRunning(false)
-    buzz([80, 60, 80])
-  })
+  // The same clock the online room uses: one per word round, set when the
+  // discussion first started, and it does not rewind for a second lap.
+  const remaining = useDeadline(round.deadlineAt, round.pausedAt, () =>
+    dispatch({ type: 'expireClock' }),
+  )
+  const paused = round.pausedAt !== null
+  const over = round.clockExpired || remaining === 0
 
   const speakers = round.order.map((id) => playerById(state, id)!).filter(Boolean)
   const alive = speakers.filter((p) => round.alive.includes(p.id))
   const starter = alive[0]
-  const over = settings.timerSeconds > 0 && remaining === 0
 
   return (
     <div className="screen">
       <TopBar
         title={t('discussion')}
-        step={t('round', { n: round.index + 1, total: settings.rounds })}
+        step={
+          round.pass > 1
+            ? t('wordRoundCount', { n: round.pass })
+            : t('round', { n: round.index + 1, total: settings.rounds })
+        }
       />
 
       <div className="hero" style={{ gap: 4 }}>
@@ -43,27 +47,30 @@ export function DiscussScreen({
         <p>{t('discussHint')}</p>
       </div>
 
-      {settings.timerSeconds > 0 && (
+      {remaining !== null && (
         <div className="card">
           <div className="timer">
-            <span className={remaining <= 10 ? 'clock low' : 'clock'}>
+            <span className={remaining <= 10 && !over ? 'clock low' : 'clock'}>
               {over ? t('timeUp') : mmss(remaining)}
             </span>
             <div className="bar">
-              <span style={{ width: `${(remaining / settings.timerSeconds) * 100}%` }} />
+              <span
+                style={{ width: `${Math.min(100, (remaining / Math.max(settings.timerSeconds, 1)) * 100)}%` }}
+              />
             </div>
           </div>
-          <button
-            className="btn btn-ghost"
-            style={{ marginTop: 12 }}
-            onClick={() => {
-              buzz()
-              setRunning((r) => !r)
-            }}
-            disabled={over}
-          >
-            {running ? t('pause') : t('resume')}
-          </button>
+          {!over && (
+            <button
+              className="btn btn-ghost"
+              style={{ marginTop: 12 }}
+              onClick={() => {
+                buzz()
+                dispatch({ type: paused ? 'resumeClock' : 'pauseClock', at: Date.now() })
+              }}
+            >
+              {paused ? t('resume') : t('pause')}
+            </button>
+          )}
         </div>
       )}
 

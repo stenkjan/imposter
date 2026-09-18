@@ -22,38 +22,51 @@ export function usePersisted<T>(key: string, initial: T) {
   return [value, setValue] as const
 }
 
-/** Countdown in whole seconds that keeps time across a backgrounded tab. */
-export function useCountdown(seconds: number, running: boolean, onDone?: () => void) {
-  const [remaining, setRemaining] = useState(seconds)
-  const deadline = useRef<number | null>(null)
-  const done = useRef(onDone)
-  done.current = onDone
+/**
+ * Seconds left on a deadline that lives in the game state rather than in this
+ * component. Every phone counts down to the same moment, a reload picks the
+ * clock up where it was, and a second word round keeps eating into the same
+ * minutes instead of starting over.
+ *
+ * `onExpired` fires once per deadline, on whichever device is watching.
+ */
+export function useDeadline(
+  deadlineAt: number | null,
+  pausedAt: number | null,
+  onExpired?: () => void,
+): number | null {
+  const [now, setNow] = useState(() => Date.now())
+  const fired = useRef(false)
+  const done = useRef(onExpired)
+  done.current = onExpired
 
   useEffect(() => {
-    setRemaining(seconds)
-    deadline.current = null
-  }, [seconds])
+    fired.current = false
+  }, [deadlineAt])
 
   useEffect(() => {
-    if (!running || seconds <= 0) return
-    deadline.current = Date.now() + remaining * 1000
-    const tick = () => {
-      const left = Math.max(0, Math.round(((deadline.current ?? 0) - Date.now()) / 1000))
-      setRemaining(left)
-      if (left === 0) done.current?.()
-    }
+    if (deadlineAt === null || pausedAt !== null) return
+    const tick = () => setNow(Date.now())
+    tick()
     const id = window.setInterval(tick, 250)
+    // A backgrounded tab is throttled, so catch up the moment it comes back.
     const onVisible = () => document.visibilityState === 'visible' && tick()
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       window.clearInterval(id)
       document.removeEventListener('visibilitychange', onVisible)
     }
-    // `remaining` is intentionally read once per start/pause, not per tick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, seconds])
+  }, [deadlineAt, pausedAt])
 
-  return { remaining, reset: () => setRemaining(seconds) }
+  useEffect(() => {
+    if (deadlineAt === null || pausedAt !== null || fired.current) return
+    if (now < deadlineAt) return
+    fired.current = true
+    done.current?.()
+  }, [now, deadlineAt, pausedAt])
+
+  if (deadlineAt === null) return null
+  return Math.max(0, Math.round((deadlineAt - (pausedAt ?? now)) / 1000))
 }
 
 /** Short haptic tap where the platform supports it (Android Chrome). */

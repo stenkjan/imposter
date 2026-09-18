@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { portraitFor } from '../game/portraits'
 import { IconBack } from './icons'
 import { avatarColor, initials } from './Characters'
+import { usePortraitCard } from './PortraitCard'
 
 export function TopBar({
   title,
@@ -32,9 +33,23 @@ export function TopBar({
  * Everyone has a face: a drawn portrait where one exists, a guest portrait
  * otherwise. The coloured initials stay as the fallback for the moment before
  * the picture loads and for the rare case where it never does.
+ *
+ * Tapping one opens it as a full card, unless `plain` says not to — inside a
+ * button, such as a vote row, the tap belongs to the button.
  */
-export function Avatar({ name, size = 32 }: { name: string; size?: number }) {
+export function Avatar({
+  name,
+  size = 32,
+  points,
+  plain,
+}: {
+  name: string
+  size?: number
+  points?: number | null
+  plain?: boolean
+}) {
   const [failed, setFailed] = useState(false)
+  const openCard = usePortraitCard()
   const style = {
     background: avatarColor(name),
     width: size,
@@ -42,9 +57,28 @@ export function Avatar({ name, size = 32 }: { name: string; size?: number }) {
     fontSize: Math.round(size * 0.42),
   }
 
+  const show = openCard && !plain ? () => openCard({ name, points }) : null
+  const tap = show
+    ? {
+        className: 'avatar tappable',
+        role: 'button',
+        tabIndex: 0,
+        onClick: (event: { stopPropagation: () => void }) => {
+          event.stopPropagation()
+          show()
+        },
+        onKeyDown: (event: KeyboardEvent) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          event.preventDefault()
+          event.stopPropagation()
+          show()
+        },
+      }
+    : { className: 'avatar', 'aria-hidden': true as const }
+
   if (failed) {
     return (
-      <span className="avatar" style={style} aria-hidden="true">
+      <span {...tap} style={style} aria-label={show ? name : undefined}>
         {initials(name)}
       </span>
     )
@@ -52,11 +86,11 @@ export function Avatar({ name, size = 32 }: { name: string; size?: number }) {
 
   return (
     <img
-      className="avatar"
+      {...tap}
       src={portraitFor(name)}
       style={style}
       onError={() => setFailed(true)}
-      alt=""
+      alt={show ? name : ''}
       draggable={false}
     />
   )
@@ -86,6 +120,44 @@ export function Segmented<T extends string | number>({
           {o.label}
         </button>
       ))}
+    </div>
+  )
+}
+
+/** A small −/+ pair for a point rule; 0 reads as "off" rather than as a zero. */
+export function Stepper({
+  value,
+  onChange,
+  title,
+  description,
+  offLabel,
+  min = 0,
+  max = 9,
+}: {
+  value: number
+  onChange: (next: number) => void
+  title: string
+  description: string
+  offLabel: string
+  min?: number
+  max?: number
+}) {
+  const step = (by: number) => onChange(Math.min(Math.max(value + by, min), max))
+  return (
+    <div className="setting stepper-row">
+      <div className="setting-label">
+        <strong>{title}</strong>
+        <small>{description}</small>
+      </div>
+      <div className="stepper" role="group" aria-label={title}>
+        <button onClick={() => step(-1)} disabled={value <= min} aria-label={`${title} −`}>
+          −
+        </button>
+        <span className={value ? 'value' : 'value off'}>{value || offLabel}</span>
+        <button onClick={() => step(1)} disabled={value >= max} aria-label={`${title} +`}>
+          +
+        </button>
+      </div>
     </div>
   )
 }

@@ -9,7 +9,9 @@ import {
   loadRoom,
   newPlayerId,
   newToken,
+  presentPlayers,
   saveRoom,
+  settleClock,
   touchPresence,
   versionKey,
   viewFor,
@@ -18,6 +20,8 @@ import { get } from './_lib/kv.js'
 
 const cleanName = (value: unknown): string =>
   typeof value === 'string' ? value.trim().slice(0, 16) : ''
+
+const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!kvConfigured) return fail(res, 503, 'storage-unconfigured')
@@ -28,10 +32,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!isValidCode(code)) return fail(res, 400, 'bad-code')
     const room = await loadRoom(code)
     if (!room) return fail(res, 404, 'no-such-room')
+    const present = await presentPlayers(code)
     return res.status(200).json({
       code: room.code,
       stage: room.game ? 'game' : 'lobby',
-      players: room.players.map((p) => p.name),
+      // An empty seat is one you can walk back into, name and all.
+      players: room.players.map((p) => ({ name: p.name, online: present.has(p.id) })),
     })
   }
 
@@ -57,11 +63,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const room = await loadRoom(code)
     if (!room) return fail(res, 404, 'no-such-room')
+
+    /**
+     * Someone whose phone dropped out is not a stranger: if their seat is
+     * empty, the same name walks straight back into it — mid-game too, where
+     * the round still refers to that seat. A fresh token comes with it, so
+     * the new device is the one that holds the seat from now on.
+     */
+    const seat = room.players.find((p) => sameName(p.name, name))
+    if (seat) {
+      const present = await presentPlayers(code)
+      if (present.has(seat.id)) return fail(res, 409, 'name-taken')
+      const token = newToken()
+      room.secrets[seat.id] = token
+      settleClock(room)
+      await saveRoom(room)
+      await touchPresence(code, seat.id)
+      return res.status(200).json({ code, playerId: seat.id, token, rejoined: true })
+    }
+
+    // A new face can only take a seat before the first card is dealt.
     if (room.game) return fail(res, 409, 'already-started')
     if (room.players.length >= MAX_PLAYERS) return fail(res, 409, 'room-full')
-    if (room.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
-      return fail(res, 409, 'name-taken')
-    }
 
     const playerId = newPlayerId()
     const token = newToken()
@@ -82,6 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!room) return fail(res, 404, 'no-such-room')
     if (!authorize(room, playerId, token)) return fail(res, 403, 'not-a-member')
     await touchPresence(code, playerId)
+    if (settleClock(room)) await saveRoom(room)
     const version = Number((await get(versionKey(code))) ?? 0)
     return res.status(200).json(await viewFor(room, playerId, version))
   }

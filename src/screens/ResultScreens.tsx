@@ -10,10 +10,18 @@ import {
   type GameState,
 } from '../game/state'
 import { Crew } from '../components/Characters'
-import { CareerSheet } from '../components/CareerSheet'
+import { LeaderboardSheet } from '../components/LeaderboardSheet'
 import { Avatar, TopBar } from '../components/ui'
 
-function ScoreList({ state, t }: { state: GameState; t: Translate }) {
+function ScoreList({
+  state,
+  t,
+  earned,
+}: {
+  state: GameState
+  t: Translate
+  earned?: Record<string, number> | null
+}) {
   const table = standings(state.players)
   const top = table[0]?.score ?? 0
   // Only crown an outright leader — a four-way tie in gold reads as noise.
@@ -23,8 +31,9 @@ function ScoreList({ state, t }: { state: GameState; t: Translate }) {
       {table.map((p, i) => (
         <li key={p.id} className={soleLeader && p.score === top ? 'score-row lead' : 'score-row'}>
           <span className="rank">{i + 1}</span>
-          <Avatar name={p.name} size={30} />
+          <Avatar name={p.name} size={30} points={p.score} />
           <span className="name">{p.name}</span>
+          {earned?.[p.id] ? <span className="gain">+{earned[p.id]}</span> : null}
           <span className="pts">
             {p.score}
             <small>{t('pointsShort')}</small>
@@ -82,6 +91,43 @@ export function EjectedScreen({
       <div className="actions">
         <button className="btn btn-primary" onClick={onNext}>
           {t('next')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * The vote settled nothing and the round goes on — but how it goes on is the
+ * table's call: straight into another vote, or another lap of clues first.
+ * The clock does not care either way, it keeps running.
+ */
+export function StandoffScreen({
+  t,
+  state,
+  onContinue,
+}: {
+  t: Translate
+  state: GameState
+  onContinue: (as: 'discuss' | 'vote') => void
+}) {
+  return (
+    <div className="screen">
+      <TopBar
+        title={t('standoffTitle')}
+        step={t('round', { n: state.round.index + 1, total: state.settings.rounds })}
+      />
+      <div className="verdict">
+        <Crew tone="neutral" size={104} />
+        <h2>{t('standoffTitle')}</h2>
+        <p className="hint">{t('standoffBody')}</p>
+      </div>
+      <div className="actions">
+        <button className="btn btn-primary" onClick={() => onContinue('discuss')}>
+          {t('newWordRound')}
+        </button>
+        <button className="btn btn-go" onClick={() => onContinue('vote')}>
+          {t('voteAgain')}
         </button>
       </div>
     </div>
@@ -165,7 +211,7 @@ export function RoundEndScreen({
             <h3>{state.round.imposterIds.length > 1 ? t('impostersWere') : t('imposterWas')}</h3>
             <span>{imposterNames}</span>
           </div>
-          <ScoreList state={state} t={t} />
+          <ScoreList state={state} t={t} earned={state.round.earned} />
         </div>
       </div>
 
@@ -189,7 +235,7 @@ export function GameEndScreen({
   onPlayAgain: () => void
   onNewLineup: () => void
 }) {
-  const [career, setCareer] = useState(false)
+  const [board, setBoard] = useState(false)
   const top = winners(state.players)
   const title = top.length === 1 ? t('winnerIs', { name: top[0].name }) : t('itIsATie')
 
@@ -215,15 +261,15 @@ export function GameEndScreen({
         <button className="btn btn-go" onClick={onPlayAgain}>
           {t('playAgain')}
         </button>
-        <button className="btn btn-quiet" onClick={() => setCareer(true)}>
-          {t('career')}
+        <button className="btn btn-quiet" onClick={() => setBoard(true)}>
+          {t('leaderboard')}
         </button>
         <button className="btn btn-quiet" onClick={onNewLineup}>
           {t('newLineup')}
         </button>
       </div>
 
-      {career && <CareerSheet t={t} onClose={() => setCareer(false)} />}
+      {board && <LeaderboardSheet t={t} onClose={() => setBoard(false)} />}
     </div>
   )
 }

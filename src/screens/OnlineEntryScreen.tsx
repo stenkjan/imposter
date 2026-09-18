@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Lang, Translate } from '../game/i18n'
 import type { Credentials } from '../online/protocol'
 import { ROOM_CODE_LENGTH } from '../online/protocol'
-import { ApiError, createRoom, joinRoom } from '../online/client'
+import { ApiError, createRoom, joinRoom, peekRoom, type RoomPeek } from '../online/client'
 import { Crew } from '../components/Characters'
 import { Segmented, TopBar } from '../components/ui'
 import { buzz } from '../hooks'
@@ -14,7 +14,7 @@ const ERRORS: Record<string, string> = {
   'bad-code': 'roomNotFound',
   'room-full': 'roomFull',
   'already-started': 'alreadyStarted',
-  'name-taken': 'duplicateName',
+  'name-taken': 'nameInUse',
   'storage-unconfigured': 'storageUnavailable',
 }
 
@@ -38,6 +38,25 @@ export function OnlineEntryScreen({
   const [code, setCode] = useState(presetCode)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [peek, setPeek] = useState<RoomPeek | null>(null)
+
+  // As soon as the code is complete, show who is in there. A running game is
+  // no longer a closed door: it is an invitation to take your old seat back.
+  useEffect(() => {
+    setPeek(null)
+    if (tab !== 'join' || code.length !== ROOM_CODE_LENGTH) return
+    let cancelled = false
+    void peekRoom(code).then((found) => {
+      if (!cancelled) setPeek(found)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [code, tab])
+
+  const running = peek?.stage === 'game'
+  const seatFor = (value: string) =>
+    peek?.players.find((p) => p.name.toLowerCase() === value.trim().toLowerCase())
 
   const trimmed = name.trim()
   const ready =
@@ -140,12 +159,24 @@ export function OnlineEntryScreen({
           <button type="submit" className="sr-only" aria-hidden="true" tabIndex={-1} />
         </form>
 
+        {peek && peek.players.length > 0 && (
+          <p className="hint">
+            {t('roomOccupants', { names: peek.players.map((p) => p.name).join(', ') })}
+          </p>
+        )}
+        {running && !seatFor(name) && <p className="hint">{t('rejoinHint')}</p>}
         {error && <p className="hint warn">{t(error as never)}</p>}
       </div>
 
       <div className="actions">
         <button className="btn btn-go" disabled={!ready} onClick={() => void go()}>
-          {busy ? `${t('connecting')}…` : tab === 'create' ? t('createRoom') : t('joinRoom')}
+          {busy
+            ? `${t('connecting')}…`
+            : tab === 'create'
+              ? t('createRoom')
+              : seatFor(name)
+                ? t('rejoin')
+                : t('joinRoom')}
         </button>
       </div>
     </div>

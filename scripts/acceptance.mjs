@@ -81,9 +81,20 @@ await act(host, {
     imposters: 1,
     hintForImposter: true,
     rounds: 2,
-    timerSeconds: 60,
+    timerSeconds: 0,
     lastChance: true,
     categoryIds: ['animals', 'food', 'austria'],
+    orderMode: 'rotate',
+    imposterFairness: 1,
+    edgeAvoidance: 0.8,
+    points: {
+      voteCorrect: 1,
+      imposterSurvive: 1,
+      imposterGuess: 1,
+      clockSurvived: 1,
+      civilianWin: 0,
+      imposterWin: 0,
+    },
   },
 })
 let view = await act(host, { type: 'start' })
@@ -119,6 +130,7 @@ check(
 
 let roundsPlayed = 0
 let secrecyChecked = false
+let scoreSecrecyChecked = false
 
 for (let game = 0; game < 2; game++) {
   for (;;) {
@@ -143,6 +155,27 @@ for (let game = 0; game < 2; game++) {
     )
 
     view = await act(host, { type: 'resolve' })
+
+    if (!scoreSecrecyChecked) {
+      // Ein Punktestand, der mitten in der Runde steigt, verraet, wer richtig
+      // getippt hat. Gebucht wird waehrend der Runde, ausgezahlt erst danach.
+      check(
+        'Punkte bleiben bis zum Rundenende verborgen',
+        view.players.every((p) => p.score === 0),
+        JSON.stringify(view.players.map((p) => p.score)),
+      )
+      scoreSecrecyChecked = true
+    }
+
+    if (view.round.phase === 'standoff') {
+      check('Patt fragt den Gastgeber', view.round.outcome === null)
+      check(
+        'nur der Gastgeber entscheidet das Patt',
+        (await act(players[1], { type: 'continue', as: 'vote' })).error === 'host-only',
+      )
+      view = await act(host, { type: 'continue', as: 'vote' })
+      check('direkt abstimmen springt in die Abstimmung', view.round.phase === 'vote')
+    }
     if (view.round.phase === 'lastChance') {
       view = await act(host, { type: 'lastChance', correct: false })
     }
@@ -168,7 +201,39 @@ check(
   'Punkte vergeben',
   view.players.reduce((sum, p) => sum + p.score, 0) > 0,
 )
-check('Neustart moeglich', (await act(host, { type: 'restart' })).round.phase === 'reveal')
+// --------------------------------------------------------------- rematch
+
+section('Neue Partie')
+const rematch = await act(host, { type: 'restart' })
+check('Neustart moeglich', rematch.round.phase === 'reveal')
+check('Punkte zurueck auf null', rematch.players.every((p) => p.score === 0))
+// Der Fehler aus dem Livetest: die neue Partie erbte die Bereitmeldungen der
+// alten, stand sofort auf 5/5 und kam trotzdem nie aus dem Warten heraus.
+check('niemand ist vorab bereit', rematch.players.every((p) => !p.ready))
+const oneReady = await act(players[1], { type: 'ready' })
+check('eine Bereitmeldung startet noch nichts', oneReady.round.phase === 'reveal')
+check('sie wird aber gezaehlt', oneReady.players.filter((p) => p.ready).length === 1)
+
+// --------------------------------------------------------------- rejoining
+
+section('Wieder einsteigen')
+const dropout = players[2]
+await act(dropout, { type: 'leave' })
+const back = await post('/api/room', { op: 'join', code, name: 'Matze' })
+check('gleicher Platz zurueck', back.playerId === dropout.playerId, JSON.stringify(back))
+check('als Rueckkehr gekennzeichnet', back.rejoined === true)
+check('mit neuem Token', back.token !== dropout.token)
+const seats = await snapshot(back)
+check('kein zusaetzlicher Platz', seats.players.length === 5)
+check(
+  'das alte Token gilt nicht mehr',
+  (await act(dropout, { type: 'ready' })).error === 'not-a-member',
+)
+check(
+  'ein besetzter Name bleibt gesperrt',
+  (await post('/api/room', { op: 'join', code, name: 'Matze' })).error === 'name-taken',
+)
+players[2] = back
 
 // --------------------------------------------------------------- host handover
 
@@ -179,6 +244,58 @@ const names = Object.fromEntries(after.players.map((p) => [p.id, p.name]))
 check('Host vererbt', names[after.hostId] !== 'Jan', names[after.hostId])
 check('Platz bleibt im laufenden Spiel', after.players.length === 5)
 check('neuer Host schaltet', !(await act(players[1], { type: 'toVote' })).error)
+
+// --------------------------------------------------------------- line-up
+
+section('Reihenfolge')
+const lobby = await post('/api/room', { op: 'create', name: 'Ordner', lang: 'de' })
+const guests = []
+for (const name of ['Anna', 'Bert', 'Cleo']) {
+  guests.push(await post('/api/room', { op: 'join', code: lobby.code, name }))
+}
+let lineup = await snapshot(lobby)
+const wanted = lineup.players.map((p) => p.id).reverse()
+
+check(
+  'nur der Gastgeber stellt um',
+  (await act(guests[0], { type: 'order', order: wanted })).error === 'host-only',
+)
+check(
+  'eine unvollstaendige Aufstellung wird abgelehnt',
+  (await act(lobby, { type: 'order', order: wanted.slice(1) })).error === 'bad-order',
+)
+lineup = await act(lobby, { type: 'order', order: wanted })
+check('Aufstellung uebernommen', lineup.players.map((p) => p.id).join() === wanted.join())
+
+await act(lobby, {
+  type: 'settings',
+  settings: { ...lineup.settings, orderMode: 'lobby', timerSeconds: 0 },
+})
+lineup = await act(lobby, { type: 'start' })
+check('die Aufstellung ist die Reihenfolge', lineup.round.order.join() === wanted.join())
+
+// --------------------------------------------------------------- the clock
+
+section('Rundenuhr')
+const timed = await post('/api/room', { op: 'create', name: 'Uhrmacher', lang: 'de' })
+const watchers = [timed]
+for (const name of ['Zeit', 'Geist']) {
+  watchers.push(await post('/api/room', { op: 'join', code: timed.code, name }))
+}
+let ticking = await snapshot(timed)
+await act(timed, {
+  type: 'settings',
+  settings: { ...ticking.settings, rounds: 1, timerSeconds: 2, lastChance: false },
+})
+ticking = await act(timed, { type: 'start' })
+for (const p of watchers) ticking = await act(p, { type: 'ready' })
+check('die Uhr startet mit der Diskussion', typeof ticking.round.deadlineAt === 'number')
+check('und laeuft noch', ticking.round.clockExpired === false)
+
+await sleep(2600)
+ticking = await snapshot(timed)
+check('abgelaufene Uhr erzwingt die Abstimmung', ticking.round.phase === 'vote')
+check('und ist als abgelaufen vermerkt', ticking.round.clockExpired === true)
 
 // --------------------------------------------------------------- live stream
 

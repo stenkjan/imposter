@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import type { Translate } from '../game/i18n'
 import { MAX_PLAYERS, MIN_PLAYERS } from '../game/state'
 import { Avatar, TopBar } from '../components/ui'
+import { IconDown, IconUp } from '../components/icons'
 import { buzz } from '../hooks'
 
 export function PlayersScreen({
@@ -30,6 +31,16 @@ export function PlayersScreen({
     setDraft('')
     buzz()
     input.current?.focus()
+  }
+
+  /** This list is also the seating: who speaks first, and in which direction. */
+  const move = (index: number, by: -1 | 1) => {
+    const target = index + by
+    if (target < 0 || target >= names.length) return
+    const next = names.slice()
+    ;[next[index], next[target]] = [next[target], next[index]]
+    buzz()
+    onNames(next)
   }
 
   const missing = MIN_PLAYERS - names.length
@@ -68,10 +79,26 @@ export function PlayersScreen({
           <p className="empty">{t('noPlayersYet')}</p>
         ) : (
           <ul className="player-list">
-            {names.map((name) => (
+            {names.map((name, i) => (
               <li className="player-chip" key={name}>
                 <Avatar name={name} />
                 <span className="name">{name}</span>
+                <span className="order-grip">
+                  <button
+                    className="icon-btn"
+                    aria-label={t('moveUp', { name })}
+                    onClick={() => move(i, -1)}
+                  >
+                    <IconUp />
+                  </button>
+                  <button
+                    className="icon-btn"
+                    aria-label={t('moveDown', { name })}
+                    onClick={() => move(i, 1)}
+                  >
+                    <IconDown />
+                  </button>
+                </span>
                 <button
                   className="remove"
                   aria-label={t('removePlayer', { name })}
@@ -86,6 +113,7 @@ export function PlayersScreen({
       </div>
 
       <div className="actions">
+        {names.length > 1 && <p className="hint">{t('lobbyOrderHint')}</p>}
         {missing > 0 && <p className="hint">{t('needMorePlayers', { n: MIN_PLAYERS })}</p>}
         <button className="btn btn-primary" disabled={missing > 0} onClick={onNext}>
           {t('next')}

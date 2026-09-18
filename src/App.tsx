@@ -5,17 +5,17 @@ import {
   defaultSettings,
   isLastRound,
   makeRound,
-  maxImposters,
+  normaliseSettings,
   reduce,
   type Action,
   type GameState,
   type Settings,
 } from './game/state'
-import { CATEGORIES } from './game/words'
 import { usePersisted } from './hooks'
 import { loadCredentials, sendAction, snapshot, storeCredentials, useRoom } from './online/client'
 import { recordGame } from './game/leaderboard'
 import { isValidCode, type Credentials } from './online/protocol'
+import { PortraitProvider } from './components/PortraitCard'
 import { HomeScreen } from './screens/HomeScreen'
 import { PlayersScreen } from './screens/PlayersScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
@@ -29,21 +29,10 @@ import {
   GameEndScreen,
   LastChanceScreen,
   RoundEndScreen,
+  StandoffScreen,
 } from './screens/ResultScreens'
 
 type Route = 'home' | 'players' | 'settings' | 'online' | 'room'
-
-/** Guards against an older persisted shape after a category or option change. */
-function sanitize(settings: Settings, playerCount: number): Settings {
-  const known = CATEGORIES.map((c) => c.id)
-  const categoryIds = settings.categoryIds?.filter((id) => known.includes(id)) ?? []
-  return {
-    ...defaultSettings(playerCount),
-    ...settings,
-    imposters: Math.min(Math.max(1, settings.imposters ?? 1), maxImposters(playerCount)),
-    categoryIds: categoryIds.length ? categoryIds : known,
-  }
-}
 
 /** A shared link lands as /?room=ABCD; consume it so a reload stays clean. */
 function takeRoomFromUrl(): string {
@@ -65,8 +54,9 @@ export default function App() {
   const [creds, setCreds] = useState<Credentials | null>(null)
 
   const t = useMemo(() => translator(lang), [lang])
+  // Guards against an older persisted shape after a category or option change.
   const settings = useMemo(
-    () => sanitize(stored, Math.max(names.length, 3)),
+    () => normaliseSettings(stored, Math.max(names.length, 3)),
     [stored, names.length],
   )
 
@@ -108,7 +98,7 @@ export default function App() {
 
   const room = useRoom(creds, dropRoom)
 
-  // A finished game counts once towards the all-time table.
+  // A finished game counts once towards the leaderboard.
   useEffect(() => {
     if (game?.phase === 'gameEnd') recordGame(game.id, game.players)
   }, [game?.phase, game?.id, game?.players])
@@ -117,8 +107,17 @@ export default function App() {
 
   const dispatch = (action: Action) => setGame((g) => (g ? reduce(g, action) : g))
 
+  /** When the last card is turned, the round's clock starts. */
+  const deadline = () =>
+    settings.timerSeconds > 0 ? Date.now() + settings.timerSeconds * 1000 : null
+
   const startLocal = () => {
-    setGame(createGame(names.map((name, i) => ({ id: `p${i}`, name, score: 0 })), settings))
+    setGame(
+      createGame(
+        names.map((name, i) => ({ id: `p${i}`, name, score: 0 })),
+        settings,
+      ),
+    )
   }
 
   const nextRound = () =>
@@ -127,153 +126,174 @@ export default function App() {
       if (isLastRound(g)) return reduce(g, { type: 'endGame' })
       return reduce(g, {
         type: 'startRound',
-        round: makeRound(g.round.index + 1, g.players, g.settings, g.usedWords),
+        round: makeRound(
+          g.round.index + 1,
+          g.players,
+          g.settings,
+          g.usedWords,
+          g.imposterHistory,
+        ),
       })
     })
 
-  if (game) {
-    switch (game.phase) {
-      case 'reveal':
+  const screen = () => {
+    if (game) {
+      switch (game.phase) {
+        case 'reveal':
+          return (
+            <RevealScreen
+              t={t}
+              lang={lang}
+              state={game}
+              onNext={() => dispatch({ type: 'revealNext', deadlineAt: deadline() })}
+            />
+          )
+        case 'discuss':
+          return (
+            <DiscussScreen
+              t={t}
+              state={game}
+              dispatch={dispatch}
+              onVote={() => dispatch({ type: 'toVote' })}
+            />
+          )
+        case 'vote':
+          return (
+            <VoteScreen
+              t={t}
+              state={game}
+              onEject={(playerId) => dispatch({ type: 'eject', playerId })}
+              onBack={() => setGame({ ...game, phase: 'discuss' })}
+            />
+          )
+        case 'ejected':
+          return (
+            <EjectedScreen t={t} state={game} onNext={() => dispatch({ type: 'resolveEjection' })} />
+          )
+        case 'standoff':
+          return (
+            <StandoffScreen
+              t={t}
+              state={game}
+              onContinue={(as) => dispatch({ type: 'continue', as })}
+            />
+          )
+        case 'lastChance':
+          return (
+            <LastChanceScreen
+              t={t}
+              state={game}
+              onResult={(correct) => dispatch({ type: 'lastChance', correct })}
+            />
+          )
+        case 'roundEnd':
+          return (
+            <RoundEndScreen
+              t={t}
+              lang={lang}
+              state={game}
+              isLast={isLastRound(game)}
+              onNext={nextRound}
+            />
+          )
+        case 'gameEnd':
+          return (
+            <GameEndScreen
+              t={t}
+              state={game}
+              onPlayAgain={() =>
+                setGame(createGame(game.players, game.settings, game.imposterHistory))
+              }
+              onNewLineup={() => {
+                setGame(null)
+                setRoute('players')
+              }}
+            />
+          )
+      }
+    }
+
+    // ---------------------------------------------------------- everything else
+
+    switch (route) {
+      case 'players':
         return (
-          <RevealScreen
+          <PlayersScreen
+            t={t}
+            names={names}
+            onNames={setNames}
+            onBack={() => setRoute('home')}
+            onNext={() => setRoute('settings')}
+          />
+        )
+
+      case 'settings':
+        return (
+          <SettingsScreen
             t={t}
             lang={lang}
-            state={game}
-            onNext={() => dispatch({ type: 'revealNext' })}
+            playerCount={names.length}
+            settings={settings}
+            onSettings={setStored}
+            onBack={() => setRoute('players')}
+            onStart={startLocal}
           />
         )
-      case 'discuss':
+
+      case 'online':
         return (
-          <DiscussScreen
-            // Remounting per pass gives every discussion a fresh clock.
-            key={`${game.round.index}-${game.round.pass}`}
-            t={t}
-            state={game}
-            onVote={() => dispatch({ type: 'toVote' })}
-          />
-        )
-      case 'vote':
-        return (
-          <VoteScreen
-            t={t}
-            state={game}
-            onEject={(playerId) => dispatch({ type: 'eject', playerId })}
-            onBack={() => setGame({ ...game, phase: 'discuss' })}
-          />
-        )
-      case 'ejected':
-        return (
-          <EjectedScreen t={t} state={game} onNext={() => dispatch({ type: 'resolveEjection' })} />
-        )
-      case 'lastChance':
-        return (
-          <LastChanceScreen
-            t={t}
-            state={game}
-            onResult={(correct) => dispatch({ type: 'lastChance', correct })}
-          />
-        )
-      case 'roundEnd':
-        return (
-          <RoundEndScreen
+          <OnlineEntryScreen
             t={t}
             lang={lang}
-            state={game}
-            isLast={isLastRound(game)}
-            onNext={nextRound}
-          />
-        )
-      case 'gameEnd':
-        return (
-          <GameEndScreen
-            t={t}
-            state={game}
-            onPlayAgain={() => setGame(createGame(game.players, game.settings))}
-            onNewLineup={() => {
-              setGame(null)
-              setRoute('players')
+            presetCode={invite}
+            lastName={lastName}
+            onBack={() => setRoute('home')}
+            onEntered={(next, name) => {
+              storeCredentials(next)
+              setLastName(name)
+              setCreds(next)
+              setRoute('room')
             }}
+          />
+        )
+
+      case 'room':
+        return room.view ? (
+          <RoomScreen
+            t={translator(room.view.lang)}
+            view={room.view}
+            live={room.live}
+            error={room.error}
+            act={(action) => void room.act(action)}
+            refresh={() => void room.refresh()}
+            onLeave={leaveRoom}
+          />
+        ) : (
+          <div className="screen">
+            <div className="verdict">
+              <p className="hint">{room.error ? t(room.error as never) : `${t('connecting')}…`}</p>
+              {room.error && (
+                <button className="btn btn-ghost" onClick={leaveRoom}>
+                  {t('back')}
+                </button>
+              )}
+            </div>
+          </div>
+        )
+
+      default:
+        return (
+          <HomeScreen
+            t={t}
+            lang={lang}
+            onLang={setLang}
+            onLocal={() => setRoute('players')}
+            onOnline={() => setRoute('online')}
           />
         )
     }
   }
 
-  // ------------------------------------------------------------ everything else
-
-  switch (route) {
-    case 'players':
-      return (
-        <PlayersScreen
-          t={t}
-          names={names}
-          onNames={setNames}
-          onBack={() => setRoute('home')}
-          onNext={() => setRoute('settings')}
-        />
-      )
-
-    case 'settings':
-      return (
-        <SettingsScreen
-          t={t}
-          lang={lang}
-          playerCount={names.length}
-          settings={settings}
-          onSettings={setStored}
-          onBack={() => setRoute('players')}
-          onStart={startLocal}
-        />
-      )
-
-    case 'online':
-      return (
-        <OnlineEntryScreen
-          t={t}
-          lang={lang}
-          presetCode={invite}
-          lastName={lastName}
-          onBack={() => setRoute('home')}
-          onEntered={(next, name) => {
-            storeCredentials(next)
-            setLastName(name)
-            setCreds(next)
-            setRoute('room')
-          }}
-        />
-      )
-
-    case 'room':
-      return room.view ? (
-        <RoomScreen
-          t={translator(room.view.lang)}
-          view={room.view}
-          live={room.live}
-          error={room.error}
-          act={(action) => void room.act(action)}
-          onLeave={leaveRoom}
-        />
-      ) : (
-        <div className="screen">
-          <div className="verdict">
-            <p className="hint">{room.error ? t(room.error as never) : `${t('connecting')}…`}</p>
-            {room.error && (
-              <button className="btn btn-ghost" onClick={leaveRoom}>
-                {t('back')}
-              </button>
-            )}
-          </div>
-        </div>
-      )
-
-    default:
-      return (
-        <HomeScreen
-          t={t}
-          lang={lang}
-          onLang={setLang}
-          onLocal={() => setRoute('players')}
-          onOnline={() => setRoute('online')}
-        />
-      )
-  }
+  // Every face in the app opens as a full card; the room brings its own provider.
+  return <PortraitProvider t={t}>{screen()}</PortraitProvider>
 }

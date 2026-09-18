@@ -1,14 +1,21 @@
 import type { Lang } from '../../src/game/i18n.js'
 import {
+  clockHasRun,
   defaultSettings,
-  maxImposters,
+  normaliseSettings,
+  reduce,
   roundCategory,
   roundWord,
   type GameState,
   type Player,
   type Settings,
 } from '../../src/game/state.js'
-import { CODE_ALPHABET, ROOM_CODE_LENGTH, type PlayerView, type RoomView } from '../../src/online/protocol.js'
+import {
+  CODE_ALPHABET,
+  ROOM_CODE_LENGTH,
+  type PlayerView,
+  type RoomView,
+} from '../../src/online/protocol.js'
 import * as kv from './kv.js'
 
 /** Rooms are ephemeral: a party ends, the keys expire, nothing to clean up. */
@@ -20,19 +27,29 @@ export type Room = {
   lang: Lang
   hostId: string
   settings: Settings
+  /** Also the speaking order: the host arranges this list in the lobby. */
   players: Player[]
   /** playerId -> bearer token. Never leaves the server. */
   secrets: Record<string, string>
   game: GameState | null
+  /** Imposters of every round played in this room, across restarts. */
+  imposterHistory?: string[][]
   createdAt: number
 }
 
 const roomKey = (code: string) => `room:${code}`
 export const versionKey = (code: string) => `room:${code}:v`
 const seenKey = (code: string) => `room:${code}:seen`
-const readyKey = (code: string, round: number) => `room:${code}:ready:${round}`
-const voteKey = (code: string, round: number, pass: number) =>
-  `room:${code}:votes:${round}:${pass}`
+
+/**
+ * Per-round keys carry the game id. Without it a rematch would inherit the
+ * first game's ticks — everyone "ready" before anyone had looked, and a vote
+ * from the previous game resolving the new one on the spot.
+ */
+const readyKey = (code: string, gameId: string, round: number) =>
+  `room:${code}:${gameId}:ready:${round}`
+const voteKey = (code: string, gameId: string, round: number, pass: number) =>
+  `room:${code}:${gameId}:votes:${round}:${pass}`
 const lockKey = (code: string, what: string) => `room:${code}:lock:${what}`
 
 export const keysFor = { readyKey, voteKey, lockKey }
@@ -44,19 +61,21 @@ const random = (n: number) => {
 }
 
 export function newCode(): string {
-  return [...random(ROOM_CODE_LENGTH)]
-    .map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length])
-    .join('')
+  return [...random(ROOM_CODE_LENGTH)].map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('')
 }
 
-export const newToken = () =>
-  [...random(24)].map((b) => b.toString(16).padStart(2, '0')).join('')
+export const newToken = () => [...random(24)].map((b) => b.toString(16).padStart(2, '0')).join('')
 
 export const newPlayerId = () => `p_${newToken().slice(0, 12)}`
 
 export async function loadRoom(code: string): Promise<Room | null> {
   const raw = await kv.get(roomKey(code))
-  return raw ? (JSON.parse(raw) as Room) : null
+  if (!raw) return null
+  const room = JSON.parse(raw) as Room
+  // A room can outlive a deploy, so an older document is repaired on read.
+  room.settings = normaliseSettings(room.settings, room.players.length)
+  room.imposterHistory ??= []
+  return room
 }
 
 /** Persists the room and bumps the version every stream is watching. */
@@ -67,7 +86,10 @@ export async function saveRoom(room: Room): Promise<number> {
   return version
 }
 
-export async function createRoom(hostName: string, lang: Lang): Promise<{ room: Room; token: string }> {
+export async function createRoom(
+  hostName: string,
+  lang: Lang,
+): Promise<{ room: Room; token: string }> {
   // Four characters is 1M combinations; a couple of tries is plenty.
   let code = newCode()
   for (let i = 0; i < 5 && (await kv.get(roomKey(code))); i++) code = newCode()
@@ -82,6 +104,7 @@ export async function createRoom(hostName: string, lang: Lang): Promise<{ room: 
     players: [{ id: hostId, name: hostName, score: 0 }],
     secrets: { [hostId]: token },
     game: null,
+    imposterHistory: [],
     createdAt: Date.now(),
   }
   await saveRoom(room)
@@ -103,11 +126,38 @@ export function handOverHost(room: Room, leaving: string, present: Set<string>):
   if (successor) room.hostId = successor.id
 }
 
-export const clampSettings = (settings: Settings, playerCount: number): Settings => ({
-  ...settings,
-  imposters: Math.min(Math.max(1, settings.imposters), maxImposters(Math.max(playerCount, 3))),
-  categoryIds: settings.categoryIds.length ? settings.categoryIds : defaultSettings(3).categoryIds,
-})
+/** Settings from a client are never trusted as they arrive. */
+export const clampSettings = normaliseSettings
+
+// ------------------------------------------------------------- the clock
+
+/**
+ * One clock runs the whole round, and it is the server that decides when it is
+ * up — a phone that fell asleep must not be able to stop the round, and the
+ * bonus for holding out to the last second has to be the same for everyone.
+ */
+export function settleClock(room: Room, now = Date.now()): boolean {
+  const game = room.game
+  if (!game || game.round.clockExpired) return false
+  if (!['discuss', 'vote', 'standoff'].includes(game.phase)) return false
+  if (!clockHasRun(game.round, now)) return false
+  room.game = reduce(game, { type: 'expireClock' })
+  return true
+}
+
+/**
+ * Called from the streams, so the vote opens by itself even when nobody
+ * touches their phone. The lock means only one of them writes.
+ */
+export async function tickClock(code: string): Promise<void> {
+  const room = await loadRoom(code)
+  const game = room?.game
+  if (!room || !game || game.round.clockExpired) return
+  if (!clockHasRun(game.round, Date.now())) return
+  const lock = lockKey(code, `clock:${game.id}:${game.round.index}`)
+  if (!(await kv.claim(lock, 30))) return
+  if (settleClock(room)) await saveRoom(room)
+}
 
 // ------------------------------------------------------------- presence
 
@@ -124,7 +174,11 @@ export async function forgetPresence(code: string, playerId: string) {
 export async function presentPlayers(code: string): Promise<Set<string>> {
   const seen = await kv.hgetall(seenKey(code))
   const cutoff = Date.now() - PRESENCE_TTL * 1000
-  return new Set(Object.entries(seen).filter(([, at]) => Number(at) > cutoff).map(([id]) => id))
+  return new Set(
+    Object.entries(seen)
+      .filter(([, at]) => Number(at) > cutoff)
+      .map(([id]) => id),
+  )
 }
 
 // ------------------------------------------------------------- the view
@@ -137,8 +191,12 @@ export async function viewFor(room: Room, playerId: string, version: number): Pr
   let ready = new Set<string>()
   let votes: Record<string, string> = {}
   if (game) {
-    if (game.phase === 'reveal') ready = new Set(await kv.smembers(readyKey(room.code, game.round.index)))
-    if (game.phase === 'vote') votes = await kv.hgetall(voteKey(room.code, game.round.index, game.round.pass))
+    if (game.phase === 'reveal') {
+      ready = new Set(await kv.smembers(readyKey(room.code, game.id, game.round.index)))
+    }
+    if (game.phase === 'vote') {
+      votes = await kv.hgetall(voteKey(room.code, game.id, game.round.index, game.round.pass))
+    }
   }
 
   // Scores live on the running game, not on the room roster.
@@ -199,6 +257,11 @@ function roundView(
     outcome: round.outcome,
     imposterGuessedRight: round.imposterGuessedRight,
     myVote: votes[playerId] ?? null,
+    deadlineAt: round.deadlineAt,
+    pausedAt: round.pausedAt,
+    clockExpired: round.clockExpired,
+    // A score that moved mid-round would say who guessed right.
+    earned: over ? round.earned : null,
   }
 }
 

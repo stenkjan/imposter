@@ -41,7 +41,7 @@ export function VoteScreen({
                   setPicked((current) => (current === p.id ? null : p.id))
                 }}
               >
-                <Avatar name={p.name} size={34} />
+                <Avatar name={p.name} size={34} plain />
                 <span className="name">{p.name}</span>
               </button>
             </li>

@@ -4,8 +4,9 @@ import type { Phase, Settings } from '../game/state.js'
 /**
  * The wire format between the phone and the room, shared by client and API so
  * a field can never drift apart. Everything here is already redacted for one
- * specific player: the imposter's word is absent from their own view, and the
- * full list of imposters only appears once the round is over.
+ * specific player: the imposter's word is absent from their own view, the full
+ * list of imposters only appears once the round is over, and the points banked
+ * during a round stay hidden until it is scored.
  */
 
 export type PlayerView = {
@@ -36,6 +37,12 @@ export type RoundView = {
   outcome: 'civilians' | 'imposters' | null
   imposterGuessedRight: boolean
   myVote: string | null
+  /** The round's shared clock, as wall-clock milliseconds. */
+  deadlineAt: number | null
+  pausedAt: number | null
+  clockExpired: boolean
+  /** Per-player points from this round — only once the round is scored. */
+  earned: Record<string, number> | null
 }
 
 export type RoomView = {
@@ -46,7 +53,7 @@ export type RoomView = {
   hostId: string
   youId: string
   stage: 'lobby' | 'game'
-  /** Identifies the running game for the all-time table; null in the lobby. */
+  /** Identifies the running game for the leaderboard; null in the lobby. */
   gameId: string | null
   round: RoundView | null
   version: number
@@ -62,10 +69,18 @@ export type ClientAction =
   | { type: 'start' }
   | { type: 'toVote' }
   | { type: 'resolve' }
+  /** After a vote that settled nothing: straight back to voting, or a new word round. */
+  | { type: 'continue'; as: 'discuss' | 'vote' }
   | { type: 'lastChance'; correct: boolean }
   | { type: 'nextRound' }
   | { type: 'restart' }
   | { type: 'kick'; playerId: string }
+  /** The lobby line-up, which is also the order everyone speaks in. */
+  | { type: 'order'; order: string[] }
+  | { type: 'pauseClock' }
+  | { type: 'resumeClock' }
+  /** Pushes past a phone that never answered: reveal or vote, whichever is due. */
+  | { type: 'skipWaiting' }
   // Anyone may leave; anyone may take over when the host has gone away.
   | { type: 'leave' }
   | { type: 'claimHost' }

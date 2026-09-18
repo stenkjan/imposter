@@ -79,6 +79,29 @@ export const IconEye = ({ size = 18, className }: Props) => (
   </svg>
 )
 
+/** Moving a player up or down the line-up in the lobby. */
+export const IconUp = ({ size = 16, className }: Props) => (
+  <svg {...base(size)} className={className}>
+    <path d="M12 19V6" />
+    <path d="M6 11l6-6 6 6" />
+  </svg>
+)
+
+export const IconDown = ({ size = 16, className }: Props) => (
+  <svg {...base(size)} className={className}>
+    <path d="M12 5v13" />
+    <path d="M6 13l6 6 6-6" />
+  </svg>
+)
+
+/** Pulling the room in again by hand when the stream has gone quiet. */
+export const IconRefresh = ({ size = 17, className }: Props) => (
+  <svg {...base(size)} className={className}>
+    <path d="M20 12a8 8 0 1 1-2.6-5.9" />
+    <path d="M20 4v4.5h-4.5" />
+  </svg>
+)
+
 export const IconVote = ({ size = 18, className }: Props) => (
   <svg {...base(size)} className={className}>
     <path d="M4 13.5 9 18.5l11-11" />

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { isValidCode } from '../src/online/protocol.js'
 import * as kv from './_lib/kv.js'
-import { authorize, loadRoom, touchPresence, versionKey, viewFor } from './_lib/room.js'
+import { authorize, loadRoom, tickClock, touchPresence, versionKey, viewFor } from './_lib/room.js'
 
 /**
  * Server-sent events: the phone holds one connection and gets the room pushed
@@ -14,6 +14,8 @@ export const config = { maxDuration: 60 }
 
 const WINDOW_MS = 50_000
 const POLL_MS = 1000
+/** A window is shorter than this, so presence only lapses when a phone is really gone. */
+const PRESENCE_MS = 20_000
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!kv.kvConfigured) return res.status(503).json({ error: 'storage-unconfigured' })
@@ -52,11 +54,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let version = Number((await kv.get(versionKey(code))) ?? 0)
   send('state', await viewFor(room, playerId, version))
 
+  /** When the round clock is due, so the loop can settle it without polling for it. */
+  const clockDue = (loaded: Awaited<ReturnType<typeof loadRoom>>): number | null => {
+    const round = loaded?.game?.round
+    if (!round || round.clockExpired || round.deadlineAt === null || round.pausedAt !== null) {
+      return null
+    }
+    return round.deadlineAt
+  }
+
+  let due = clockDue(room)
+  let lastPresence = Date.now()
   const startedAt = Date.now()
+
   while (open && Date.now() - startedAt < WINDOW_MS) {
     await sleep(POLL_MS)
     if (!open) break
     try {
+      // Someone has to notice that the clock ran out even when every phone is
+      // face-down on the table. Whoever wins the lock inside does it once.
+      if (due !== null && Date.now() >= due) {
+        due = null
+        await tickClock(code)
+      }
+      if (Date.now() - lastPresence > PRESENCE_MS) {
+        lastPresence = Date.now()
+        await touchPresence(code, playerId)
+      }
       const latest = Number((await kv.get(versionKey(code))) ?? 0)
       if (latest === version) {
         // Keeps mobile networks from dropping an idle connection.
@@ -69,6 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         send('gone', { reason: 'expired' })
         break
       }
+      due = clockDue(fresh)
       send('state', await viewFor(fresh, playerId, version))
     } catch {
       send('ping', version)

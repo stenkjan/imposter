@@ -1,34 +1,34 @@
 import { useState } from 'react'
 import type { Translate } from '../game/i18n'
-import { readCareer, resetCareer } from '../game/leaderboard'
+import { readLeaderboard, resetLeaderboard } from '../game/leaderboard'
 import { Avatar, Sheet } from './ui'
 
-/** The all-time table, kept on this device across evenings and both modes. */
-export function CareerSheet({ t, onClose }: { t: Translate; onClose: () => void }) {
-  const [rows, setRows] = useState(readCareer)
+/** The table across evenings, kept on this device and shared by both modes. */
+export function LeaderboardSheet({ t, onClose }: { t: Translate; onClose: () => void }) {
+  const [rows, setRows] = useState(readLeaderboard)
   const [confirming, setConfirming] = useState(false)
   const leader = rows[0]?.points ?? 0
-  const plural = (n: number, one: 'careerGame' | 'careerWin', many: 'careerGames' | 'careerWins') =>
-    `${n} ${t(n === 1 ? one : many)}`
+  const plural = (
+    n: number,
+    one: 'leaderboardGame' | 'leaderboardWin',
+    many: 'leaderboardGames' | 'leaderboardWins',
+  ) => `${n} ${t(n === 1 ? one : many)}`
 
   return (
-    <Sheet title={t('career')} onClose={onClose}>
+    <Sheet title={t('leaderboard')} onClose={onClose}>
       {rows.length === 0 ? (
-        <p className="empty">{t('careerEmpty')}</p>
+        <p className="empty">{t('leaderboardEmpty')}</p>
       ) : (
         <ul className="score-list">
           {rows.map((row, i) => (
-            <li
-              key={row.name}
-              className={i === 0 && leader > 0 ? 'score-row lead' : 'score-row'}
-            >
+            <li key={row.name} className={i === 0 && leader > 0 ? 'score-row lead' : 'score-row'}>
               <span className="rank">{i + 1}</span>
-              <Avatar name={row.name} size={34} />
+              <Avatar name={row.name} size={34} points={row.points} />
               <span className="name">
                 {row.name}
                 <small className="sub">
-                  {plural(row.games, 'careerGame', 'careerGames')} ·{' '}
-                  {plural(row.wins, 'careerWin', 'careerWins')}
+                  {plural(row.games, 'leaderboardGame', 'leaderboardGames')} ·{' '}
+                  {plural(row.wins, 'leaderboardWin', 'leaderboardWins')}
                 </small>
               </span>
               <span className="pts">
@@ -49,12 +49,12 @@ export function CareerSheet({ t, onClose }: { t: Translate; onClose: () => void 
             className="btn btn-quiet"
             onClick={() => {
               if (!confirming) return setConfirming(true)
-              resetCareer()
+              resetLeaderboard()
               setRows([])
               setConfirming(false)
             }}
           >
-            {confirming ? t('careerResetConfirm') : t('careerReset')}
+            {confirming ? t('leaderboardResetConfirm') : t('leaderboardReset')}
           </button>
         )}
       </div>

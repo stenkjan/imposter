@@ -1255,12 +1255,42 @@ ul {
   background: var(--ink-800);
 }
 
+/*
+ * Both role cards have to throw the same light. The imposter artwork is a wall
+ * of fire and the civilian one is cool grey, which in a live round told the
+ * table who was who from two metres away — before anyone had said a word. So
+ * the fire is pulled down, the civilian side is washed the same red, and the
+ * two end up within a few points of each other on every channel. The
+ * treatment is deliberately not symmetrical: matching the *result* is the
+ * point, not applying the same numbers to both.
+ */
+.face.front.imposter,
+.face.front.civilian {
+  border-color: rgba(240, 79, 106, 0.5);
+}
+
+.face.front.imposter .art {
+  filter: saturate(0.55);
+}
+
+.face.front.civilian .art {
+  filter: saturate(0.9) brightness(0.86);
+}
+
+.face.front::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--card-wash);
+}
+
 .face.front.imposter {
-  border-color: rgba(240, 79, 106, 0.55);
+  --card-wash: rgba(168, 40, 56, 0.3);
 }
 
 .face.front.civilian {
-  border-color: rgba(61, 220, 151, 0.45);
+  --card-wash: rgba(168, 40, 56, 0.56);
 }
 
 .face.front .art {
@@ -1275,6 +1305,7 @@ ul {
 
 .art-caption {
   position: relative;
+  z-index: 1;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -1300,8 +1331,14 @@ ul {
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
 }
 
-.art-caption .word.alert {
-  color: var(--red-soft);
+/* Same size, same colour whichever role it names — see the note above. */
+.art-caption .role-line {
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.75);
 }
 
 .art-caption p {
@@ -1377,4 +1414,162 @@ ul {
 .link-field:focus {
   outline: none;
   border-color: var(--green);
+}
+
+/* --------------------------------------------------------------- portraits */
+
+/* A face you can tap reads as a control without shouting about it. */
+.avatar.tappable {
+  cursor: pointer;
+  transition: transform 0.12s ease-out;
+}
+
+.avatar.tappable:active {
+  transform: scale(0.92);
+}
+
+.avatar.tappable:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.portrait-card {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(320px, calc(100vw - 2 * var(--pad)));
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--ink-500);
+  background: var(--ink-800);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: rise 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.portrait-shot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  background: var(--ink-700);
+}
+
+.portrait-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.portrait-card .art-caption {
+  padding: 18px var(--pad) 20px;
+  background: none;
+}
+
+.portrait-card .art-caption .word {
+  font-size: clamp(22px, 6vw, 28px);
+}
+
+/* --------------------------------------------------------------- line-up */
+
+/* Rearranging the line-up in the lobby is also rearranging the speaking order. */
+.order-grip {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+.order-grip .icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  color: var(--text-faint);
+}
+
+.order-grip .icon-btn:active {
+  background: var(--ink-500);
+  color: var(--text);
+}
+
+/* --------------------------------------------------------------- steppers */
+
+.stepper-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stepper-row .setting-label {
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  margin-bottom: 0;
+}
+
+.stepper-row .setting-label small {
+  text-align: left;
+}
+
+.stepper {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--ink-800);
+}
+
+.stepper button {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-dim);
+}
+
+.stepper button:active:not(:disabled) {
+  background: var(--ink-500);
+  color: var(--text);
+}
+
+.stepper button:disabled {
+  color: var(--ink-400);
+}
+
+.stepper .value {
+  min-width: 34px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.stepper .value.off {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* What this round paid out, next to the running total. */
+.score-row .gain {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(61, 220, 151, 0.16);
+  color: var(--green-soft);
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }

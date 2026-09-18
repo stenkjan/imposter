@@ -6,18 +6,21 @@
  * Names are merged case-insensitively; the most recent spelling wins.
  */
 
-const KEY = 'imposter.career'
-const SEEN_KEY = 'imposter.career.seen'
+const KEY = 'imposter.leaderboard'
+const SEEN_KEY = 'imposter.leaderboard.seen'
 const SEEN_LIMIT = 40
 
-export type Career = {
+/** The tally from before the points were reworked; its numbers mean nothing now. */
+const RETIRED_KEYS = ['imposter.career', 'imposter.career.seen']
+
+export type LeaderboardRow = {
   name: string
   games: number
   points: number
   wins: number
 }
 
-type Store = Record<string, Career>
+type Store = Record<string, LeaderboardRow>
 
 const keyFor = (name: string) => name.trim().toLowerCase()
 
@@ -38,7 +41,20 @@ function write(key: string, value: unknown) {
   }
 }
 
-export function readCareer(): Career[] {
+/**
+ * Scores from the old rules are not comparable with the new ones, so the old
+ * table is dropped rather than carried over into a mix of both.
+ */
+function dropRetired() {
+  try {
+    for (const key of RETIRED_KEYS) localStorage.removeItem(key)
+  } catch {
+    /* nothing to clean up, then */
+  }
+}
+dropRetired()
+
+export function readLeaderboard(): LeaderboardRow[] {
   const store = read<Store>(KEY, {})
   return Object.values(store).sort(
     (a, b) => b.points - a.points || b.wins - a.wins || a.name.localeCompare(b.name),
@@ -75,9 +91,10 @@ export function recordGame(gameId: string, players: Array<{ name: string; score:
   write(SEEN_KEY, [...seen, gameId].slice(-SEEN_LIMIT))
 }
 
-export function resetCareer(): void {
+export function resetLeaderboard(): void {
   write(KEY, {})
   write(SEEN_KEY, [])
+  dropRetired()
 }
 
-export const careerIsEmpty = () => readCareer().length === 0
+export const leaderboardIsEmpty = () => readLeaderboard().length === 0
