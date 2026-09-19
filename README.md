@@ -68,6 +68,12 @@ Auf Vercel ist dieser Fallback gesperrt – dort sind fehlende Credentials ein F
 8. Zivilisten gewinnen, wenn alle Imposter draußen sind; Imposter gewinnen, sobald sie
    gleich viele sind wie der Rest – oder sobald die Uhr abgelaufen ist.
 9. **Punkte** nach jeder Runde, Endstand nach der letzten.
+10. **Nochmal spielen** führt zurück in die Aufstellung, nicht direkt in die
+    nächste Partie: Uhr, Rundenzahl, Wortkategorien, Sitzordnung und wer
+    überhaupt mitspielt sind alle dort einstellbar und während einer laufenden
+    Partie gesperrt. Online heißt das, der Raum steht wieder in der Lobby und
+    ein neues Handy kommt rein. Wer die Karte schon hatte, merkt sich das Spiel
+    über die Pause hinweg, damit die Rotation nicht bei null anfängt.
 
 ## Punkte
 
@@ -185,6 +191,16 @@ weiter. Läuft sie ab, während noch diskutiert wird, beendet der Server die Run
 schreibt sie den Imposter gut. Läuft sie ab, während schon abgestimmt wird, buchen die
 überlebenden Imposter nur ihren Punkt – die Stimmen, die bereits liegen, verfallen
 nicht.
+
+**Zwischen zwei Partien macht der Raum auf.** `restart` legt die Punkte auf null
+und setzt `room.game` auf `null`, statt sofort die nächste Partie anzulegen –
+`settings`, `order`, `kick` und der Beitritt werfen alle `already-started`,
+solange ein Spiel läuft, und genau die braucht man zwischen zwei Partien. Was die
+Pause überleben muss, ist die Imposter-Rotation: sie wandert vorher nach
+`room.imposterHistory`, sonst bekäme dieselbe Person die Karte gleich wieder.
+Lokal macht das dieselbe Wendung über die Aufstellung; dort sind die Spieler-Ids
+seither die Namen, weil ein Index nach dem Hinzufügen oder Umstellen auf jemand
+anderen zeigt und die Rotation damit auf die Falschen gerechnet hätte.
 
 **Der Gastgeber wandert mit.** Verlässt er den Raum, erbt ihn jemand, der gerade am
 Handy ist; mitten im Spiel bleibt sein Platz stehen, damit die Runde nicht

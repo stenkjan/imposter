@@ -225,16 +225,19 @@ export function RoundEndScreen({
   )
 }
 
+/**
+ * `onPlayAgain` goes back to the line-up, not into a fresh game: the clock,
+ * the round count and who is at the table are all set there, and between two
+ * parties that is usually what wants changing.
+ */
 export function GameEndScreen({
   t,
   state,
   onPlayAgain,
-  onNewLineup,
 }: {
   t: Translate
   state: GameState
   onPlayAgain: () => void
-  onNewLineup: () => void
 }) {
   const [board, setBoard] = useState(false)
   const top = winners(state.players)
@@ -264,9 +267,6 @@ export function GameEndScreen({
         </button>
         <button className="btn btn-quiet" onClick={() => setBoard(true)}>
           {t('leaderboard')}
-        </button>
-        <button className="btn btn-quiet" onClick={onNewLineup}>
-          {t('newLineup')}
         </button>
       </div>
 

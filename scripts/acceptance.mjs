@@ -205,11 +205,41 @@ check(
 
 section('Neue Partie')
 const rematch = await act(host, { type: 'restart' })
-check('Neustart moeglich', rematch.round.phase === 'reveal')
+check('Neustart landet in der Lobby', rematch.stage === 'lobby' && rematch.round === null)
 check('Punkte zurueck auf null', rematch.players.every((p) => p.score === 0))
+
+// Genau das war vorher gesperrt: der Neustart sprang direkt in die naechste
+// Partie, und Uhr, Rundenzahl, Aufstellung und Beitritt blieben zu.
+const seating = rematch.players.map((p) => p.id)
+const retimed = await act(host, {
+  type: 'settings',
+  settings: { ...rematch.settings, rounds: 4, timerSeconds: 180 },
+})
+check(
+  'Uhr und Rundenzahl sind wieder einstellbar',
+  retimed.settings.rounds === 4 && retimed.settings.timerSeconds === 180,
+)
+const latecomer = await post('/api/room', { op: 'join', code, name: 'Nachzuegler' })
+check('ein neues Handy kommt rein', Boolean(latecomer.playerId), JSON.stringify(latecomer))
+check('und bekommt einen Platz', (await snapshot(host)).players.length === 6)
+await act(host, { type: 'kick', playerId: latecomer.playerId })
+
+const reversed = [...seating].reverse()
+const restacked = await act(host, { type: 'order', order: reversed })
+check(
+  'die Aufstellung laesst sich umstellen',
+  restacked.players.map((p) => p.id).join() === reversed.join(),
+)
+
+// Zurueck auf die Ausgangslage, damit die folgenden Abschnitte dieselbe Runde
+// pruefen wie bisher.
+await act(host, { type: 'order', order: seating })
+await act(host, { type: 'settings', settings: { ...retimed.settings, rounds: 2, timerSeconds: 0 } })
+const restarted = await act(host, { type: 'start' })
+check('und dann startet die neue Partie', restarted.round.phase === 'reveal')
 // Der Fehler aus dem Livetest: die neue Partie erbte die Bereitmeldungen der
 // alten, stand sofort auf 5/5 und kam trotzdem nie aus dem Warten heraus.
-check('niemand ist vorab bereit', rematch.players.every((p) => !p.ready))
+check('niemand ist vorab bereit', restarted.players.every((p) => !p.ready))
 const oneReady = await act(players[1], { type: 'ready' })
 check('eine Bereitmeldung startet noch nichts', oneReady.round.phase === 'reveal')
 check('sie wird aber gezaehlt', oneReady.players.filter((p) => p.ready).length === 1)

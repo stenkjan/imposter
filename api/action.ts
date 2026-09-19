@@ -261,9 +261,18 @@ async function apply(
     case 'restart':
       requireHost(isHost)
       if (!game || game.phase !== 'gameEnd') return false
-      // Same crew, same settings, scores back to zero — but the room keeps
-      // remembering who has had the card, so the rotation carries over.
-      room.game = createGame(room.players, room.settings, game.imposterHistory)
+      // Back to the lobby rather than straight into the next game. Between two
+      // parties the table wants the clock or the round count changed, somebody
+      // new let in, or the seating moved around — and every one of those is
+      // locked while a game runs. The host starts the next one when the room
+      // is actually ready.
+      //
+      // The rotation is the one thing that has to survive the detour, so it is
+      // lifted onto the room before the game goes: without it the card could go
+      // straight back to whoever just had it.
+      room.imposterHistory = game.imposterHistory
+      room.game = null
+      room.players = room.players.map((p) => ({ ...p, score: 0 }))
       return true
 
     default:

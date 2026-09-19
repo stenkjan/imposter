@@ -112,7 +112,6 @@ const de = {
   winnerIs: '{name} gewinnt',
   itIsATie: 'Unentschieden',
   playAgain: 'Nochmal spielen',
-  newLineup: 'Spieler ändern',
   // Online
   modeSamePhone: 'Ein Handy',
   modeSamePhoneHint: 'Weitergeben und der Reihe nach aufdecken',
@@ -330,7 +329,6 @@ const en: Dict = {
   winnerIs: '{name} wins',
   itIsATie: 'It is a tie',
   playAgain: 'Play again',
-  newLineup: 'Change players',
   modeSamePhone: 'One phone',
   modeSamePhoneHint: 'Pass it around and reveal in turn',
   modeOwnPhones: 'Own phones',
