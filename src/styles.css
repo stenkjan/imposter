@@ -1258,13 +1258,28 @@ ul {
 }
 
 /*
- * The role now shows in the room around the card (see .stage-wash), not on
- * the artwork: the civilian picture is left as drawn, the imposter card keeps
- * the wash it always had. Note what this gives up — the two cards used to be
- * matched to within a few points per channel precisely because the glow off
- * somebody's screen was telling the table who was who from two metres away,
- * before anyone had spoken. The room colour is a bigger, brighter tell than
- * the card ever was, so this is a deliberate trade, not an oversight.
+ * The role shows in the room around the card (see .stage-wash), not on the
+ * artwork: the civilian picture is left as drawn, the imposter card keeps the
+ * wash it always had. A red veil over a card that reads ZIVILIST said danger
+ * and meant nothing, which is worse than no camouflage at all.
+ *
+ * Measured against the imposter screen, largest channel of the mean colour,
+ * in a 390x844 browser — smaller is better hidden:
+ *
+ *   civilian veiled, room black   22.6 whole screen / 31.8 upper half
+ *   civilian veiled, room red     16.0 / 22.3
+ *   civilian clear,  room black   34.2 / 44.2
+ *   civilian clear,  room red     34.5 / 44.5   <- what ships
+ *
+ * So the red room is not the tell: with a clear picture it moves nothing
+ * (34.2 vs 34.5), and with the old veil it actually *helped*, because the
+ * imposter card is a wall of fire and the red room brings the civilian's
+ * total light towards it. What costs the camouflage is the clear artwork
+ * itself (16.0 -> 34.5), and most of that sits in green and blue, not red:
+ * the civilian scene is simply brighter and more colourful than the fire.
+ * Pulling the fire down further cannot close it — saturate(0.15) plus a
+ * brightness lift only reaches 27.2, and by then the imposter card is ruined.
+ * The remaining lever is the artwork, not a filter.
  */
 .face.front.imposter,
 .face.front.civilian {

@@ -156,10 +156,27 @@ abgesichert. Erreichbar vom Startmenü und von jedem Endstand.
 **Die Rolle steht im Raum, nicht auf der Karte.** Verdeckt sehen beide Karten gleich
 aus. Aufgedeckt färbt sich der Hintergrund *hinter* der Karte rot, wenn du Zivilist
 bist, und bleibt schwarz, wenn du Imposter bist; das Zivilisten-Bild selbst bleibt, wie
-es gezeichnet ist. Das ist bewusst gewählt und kostet etwas: vorher waren beide Karten
-auf wenige Punkte pro Farbkanal angeglichen, weil im Livetest der Schein vom Handy die
-Rolle verriet, bevor jemand ein Wort gesagt hatte. Die Raumfarbe ist der größere
-Leuchtfleck – wer aufdeckt, sollte das Handy also abschirmen.
+es gezeichnet ist. Ein roter Schleier über einer Karte, auf der ZIVILIST steht, sagte
+Gefahr und meinte nichts – das verwirrt mehr, als es tarnt.
+
+Gemessen gegen den Imposter-Schirm, größter Kanal der Durchschnittsfarbe, im Browser
+bei 390×844 – kleiner heißt besser getarnt:
+
+| Zivilisten-Variante | ganzer Schirm | obere Hälfte |
+|---|---|---|
+| Schleier, Raum schwarz | 22,6 | 31,8 |
+| Schleier, Raum rot | 16,0 | 22,3 |
+| Bild klar, Raum schwarz | 34,2 | 44,2 |
+| **Bild klar, Raum rot** (so läuft es) | **34,5** | **44,5** |
+
+Der rote Raum ist also *nicht* der Verräter: bei klarem Bild bewegt er nichts (34,2 vs
+34,5), und mit dem alten Schleier hat er die Tarnung sogar verbessert – die
+Imposter-Karte ist eine Wand aus Feuer, und der rote Raum zieht den Zivilisten-Schirm
+da hin. Was die Tarnung kostet, ist das klare Bild selbst (16,0 → 34,5), und der
+Abstand liegt überwiegend in Grün und Blau, nicht in Rot: die Zivilisten-Szene ist
+schlicht heller und bunter als das Feuer. Das Feuer weiter herunterzuziehen schließt
+die Lücke nicht – `saturate(0.15)` plus Aufhellung kommt auf 27,2 und ruiniert dabei
+die Imposter-Karte. Der verbleibende Hebel wäre die Zeichnung, kein Filter.
 
 **Eine Uhr pro Wortrunde, und sie gehört dem Server.** `round.deadlineAt` ist ein
 Zeitpunkt, kein Restwert: jedes Handy zählt auf denselben Moment herunter, ein Reload
