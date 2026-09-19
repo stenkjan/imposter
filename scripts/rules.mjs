@@ -24,6 +24,7 @@ const server = await createServer({
 const { pickImposters, buildOrder } = await server.ssrLoadModule('/src/game/fairness.ts')
 const state = await server.ssrLoadModule('/src/game/state.ts')
 const { createGame, defaultSettings, makeRound, reduce } = state
+const { CATEGORIES } = await server.ssrLoadModule('/src/game/words.ts')
 
 let passed = 0
 let failed = 0
@@ -260,6 +261,44 @@ check(
   'ohne Stimmzettel teilt sich der Tisch den Punkt',
   ['b', 'c', 'd', 'e'].every((id) => solo.round.earned[id] === 1) && !solo.round.earned.a,
 )
+
+// --------------------------------------------------------------- Hinweis
+
+section('Hinweis für den Imposter')
+
+// Der Nachbar ist der ganze Hinweis, also muss er zwei Dinge sein: da, und
+// nicht das Wort. Ein Nachbar, der selbst in der Kategorie steht, waere sogar
+// schaedlich — der Imposter koennte ihn streichen und haette die Auswahl
+// kleiner gemacht statt sich eine Richtung zu holen.
+const norm = (w) => w.trim().toLowerCase()
+let noNear = 0
+let selfNear = 0
+let inCategory = 0
+let pairs = 0
+
+for (const category of CATEGORIES) {
+  const own = new Set(category.words.flatMap((w) => [norm(w.de), norm(w.en)]))
+  for (const word of category.words) {
+    pairs++
+    if (!word.near?.de?.trim() || !word.near?.en?.trim()) {
+      noNear++
+      continue
+    }
+    for (const lang of ['de', 'en']) {
+      if (norm(word.near[lang]) === norm(word[lang])) selfNear++
+      if (own.has(norm(word.near[lang]))) inCategory++
+    }
+  }
+}
+
+check('jedes Wort hat einen Nachbarn', noNear === 0, `${noNear} ohne`)
+check('der Nachbar ist nie das Wort selbst', selfNear === 0, `${selfNear} gleich`)
+check(
+  'und steht nie selbst in der Kategorie',
+  inCategory === 0,
+  `${inCategory} Treffer — der Imposter koennte streichen`,
+)
+check('alle Kategorien voll besetzt', pairs === 200, `${pairs} Wörter`)
 
 // --------------------------------------------------------------- Wörter
 

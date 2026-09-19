@@ -55,7 +55,7 @@ Auf Vercel ist dieser Fallback gesperrt – dort sind fehlende Credentials ein F
 1. **Startmenü** – Sprache, dann Spielart wählen.
 2. **Aufstellung** – die Reihenfolge der Liste ist die Reihenfolge am Tisch; Pfeile
    stellen um. Online macht das der Gastgeber in der Lobby.
-3. **Einstellungen** – Anzahl Imposter, Kategorie-Hinweis, Runden, Uhr (1–5 Minuten),
+3. **Einstellungen** – Anzahl Imposter, Imposter-Hinweis, Runden, Uhr (1–5 Minuten),
    „Letzte Chance", Reihenfolge, Fairness, Punkte, Wortkategorien. Online stellt das
    der Gastgeber.
 4. **Karten** – jede:r deckt einmal auf.
@@ -91,6 +91,34 @@ Jede Zeile ist in den Einstellungen einstellbar; 0 schaltet sie ab.
 in der Runde steigt, würde verraten, wer richtig getippt hat – deshalb sammelt die Runde
 ihre Punkte in `round.earned` und schreibt sie erst am Rundenende gut. Die Wertung zeigt
 dann neben jedem Namen, was die Runde eingebracht hat.
+
+## Der Hinweis für den Imposter
+
+Nichts zu wissen ist für den Imposter kein Spiel, sondern Raten. Die Kategorie
+allein hilft kaum – die verrät der erste Tipp am Tisch ohnehin. Deshalb sind es
+drei Stufen, einstellbar wie alles andere:
+
+| Stufe | Der Imposter sieht |
+|---|---|
+| Aus | nichts |
+| Kategorie | „🦊 Kategorie: Tiere" |
+| **Nachbarwort** (Standard) | dazu „🧭 Nah dran: Schmetterling" – das Wort ist *Biene* |
+
+**Die Distanz ist das ganze Design.** Jedes Wort trägt in `src/game/words.ts`
+einen Nachbarn, und der liegt bewusst im mittleren Band, das Partyspiele wie
+*Undercover* so kalibrieren: Wolf/Fuchs, Bier/Most, Tennis/Badminton. Ein Tipp
+über den Nachbarn passt fast immer auch auf das echte Wort, aber der Nachbar ist
+nie das Wort, nie ein Teil davon und nie ein Synonym.
+
+Einen Schritt näher (Frosch/Kröte, Espresso/Kaffee) und der Imposter hätte die
+Karte auch gleich bekommen können; einen Schritt weiter (Wüste/Strand) und der
+Hinweis sagt nichts, was die Kategorie nicht schon sagte.
+
+Zwei Regeln prüft `scripts/rules.mjs` für alle 200 Wörter, weil beide eine Runde
+still ruinieren: der Nachbar ist nie das Wort selbst, und er steht nie selbst in
+derselben Kategorie – sonst könnte der Imposter ihn streichen und hätte die
+Auswahl kleiner gemacht, statt sich eine Richtung zu holen. Online entscheidet
+der Server, wer den Nachbarn bekommt; die Zivilisten sehen ihn nie.
 
 ## Weniger Zufall
 

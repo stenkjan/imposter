@@ -3,6 +3,7 @@ import { CATEGORIES } from '../game/words'
 import {
   maxImposters,
   recommendedImposters,
+  type ImposterHint,
   type ScoreRules,
   type Settings,
 } from '../game/state'
@@ -24,6 +25,12 @@ const POINT_RULES: Array<{ key: keyof ScoreRules; title: string; hint: string }>
   { key: 'civilianWin', title: 'ptCivilianWin', hint: 'ptCivilianWinHint' },
   { key: 'imposterWin', title: 'ptImposterWin', hint: 'ptImposterWinHint' },
 ]
+
+const HINT_WHY: Record<ImposterHint, 'hintNoneWhy' | 'hintCategoryWhy' | 'hintNearWhy'> = {
+  none: 'hintNoneWhy',
+  category: 'hintCategoryWhy',
+  near: 'hintNearWhy',
+}
 
 const ORDER_HINT: Record<OrderMode, 'orderRotateHint' | 'orderLobbyHint' | 'orderRandomHint'> = {
   rotate: 'orderRotateHint',
@@ -95,12 +102,22 @@ export function SettingsScreen({
         </div>
 
         <div className="card">
-          <Toggle
-            checked={settings.hintForImposter}
-            onChange={(v) => patch({ hintForImposter: v })}
-            title={t('imposterHint')}
-            description={settings.hintForImposter ? t('imposterHintOn') : t('imposterHintOff')}
-          />
+          <div className="setting">
+            <div className="setting-label">
+              <strong>{t('imposterHint')}</strong>
+              <small>{t(HINT_WHY[settings.imposterHint])}</small>
+            </div>
+            <Segmented
+              label={t('imposterHint')}
+              value={settings.imposterHint}
+              onChange={(v) => patch({ imposterHint: v })}
+              options={[
+                { value: 'none' as ImposterHint, label: t('hintNone') },
+                { value: 'category' as ImposterHint, label: t('hintCategory') },
+                { value: 'near' as ImposterHint, label: t('hintNear') },
+              ]}
+            />
+          </div>
         </div>
 
         <div className="card">

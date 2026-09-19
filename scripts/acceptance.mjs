@@ -79,7 +79,7 @@ await act(host, {
   type: 'settings',
   settings: {
     imposters: 1,
-    hintForImposter: true,
+    imposterHint: 'near',
     rounds: 2,
     timerSeconds: 0,
     lastChance: true,
@@ -117,6 +117,20 @@ check('Imposter sieht die Kategorie', imposters.every((v) => v.round.category))
 const words = new Set(cards.filter((v) => !v.round.imposter).map((v) => v.round.word))
 check('Zivilisten teilen ein Wort', words.size === 1, [...words].join('/'))
 check('Imposter-Liste verborgen', cards.every((v) => v.round.imposterIds === null))
+
+// Der Hinweis ist ein Nachbarwort, kein Leck: er geht nur an den Imposter und
+// ist nie das Wort, das die Zivilisten auf der Karte haben.
+const civilians = cards.filter((v) => !v.round.imposter)
+check(
+  'Imposter bekommt sein Nachbarwort',
+  imposters.every((v) => typeof v.round.near === 'string' && v.round.near.length > 0),
+  JSON.stringify(imposters.map((v) => v.round.near)),
+)
+check('Zivilisten bekommen keinen Hinweis', civilians.every((v) => v.round.near === null))
+check(
+  'der Nachbar ist nie das Wort',
+  imposters.every((v) => ![...words].some((w) => w.toLowerCase() === v.round.near.toLowerCase())),
+)
 
 // --------------------------------------------------------------- play
 

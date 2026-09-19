@@ -236,7 +236,11 @@ function roundView(
   const category = roundCategory(round)
   const over = phase === 'roundEnd' || phase === 'gameEnd' || phase === 'lastChance'
   const hideWord = imposter && !over
-  const hideCategory = imposter && !over && !room.settings.hintForImposter
+  const hint = room.settings.imposterHint
+  const hideCategory = imposter && !over && hint === 'none'
+  // The neighbour is the imposter's alone, and only while the word is still
+  // secret — afterwards everybody sees the word itself anyway.
+  const nearWord = imposter && !over && hint === 'near' ? roundWord(round).near[room.lang] : null
   const ejected = round.ejectedId
 
   return {
@@ -248,6 +252,7 @@ function roundView(
     order: round.order,
     word: hideWord ? null : roundWord(round)[room.lang],
     category: hideCategory ? null : { emoji: category.emoji, name: category.name[room.lang] },
+    near: nearWord,
     imposter,
     ejectedId: ejected,
     // Ejecting someone reveals that one person, never the rest of the crew.

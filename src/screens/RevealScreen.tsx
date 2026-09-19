@@ -20,6 +20,7 @@ export function RevealScreen({
   const player = state.players[state.round.revealed]
   const imposter = isImposter(state.round, player.id)
   const category = roundCategory(state.round)
+  const hint = state.settings.imposterHint
 
   return (
     <div className="screen">
@@ -38,8 +39,10 @@ export function RevealScreen({
         }}
         imposter={imposter}
         word={imposter ? null : roundWord(state.round)[lang]}
-        category={{ emoji: category.emoji, name: category.name[lang] }}
-        noHint={imposter && !state.settings.hintForImposter}
+        category={
+          imposter && hint === 'none' ? null : { emoji: category.emoji, name: category.name[lang] }
+        }
+        near={imposter && hint === 'near' ? roundWord(state.round).near[lang] : null}
       />
 
       <div className="actions">

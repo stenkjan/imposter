@@ -20,7 +20,7 @@ export function RoleCard({
   imposter,
   word,
   category,
-  noHint,
+  near,
 }: {
   t: Translate
   name: string
@@ -30,7 +30,8 @@ export function RoleCard({
   /** The secret word; only ever passed for civilians. */
   word: string | null
   category: { emoji: string; name: string } | null
-  noHint?: boolean
+  /** The imposter's hint: a neighbour of the word, never the word. */
+  near?: string | null
 }) {
   useEffect(preloadRoleArt, [])
 
@@ -75,10 +76,11 @@ export function RoleCard({
                 <>
                   <p>{t('imposterBlurb')}</p>
                   <span className="badge">
-                    {category && !noHint
+                    {category
                       ? `${category.emoji} ${t('category')}: ${category.name}`
                       : `🚫 ${t('noHint')}`}
                   </span>
+                  {near && <span className="badge">{`🧭 ${t('nearWord')}: ${near}`}</span>}
                 </>
               ) : (
                 <>

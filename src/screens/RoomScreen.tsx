@@ -443,7 +443,7 @@ function Reveal({ t, view, live, act, refresh, onLeave }: Props) {
         imposter={round.imposter}
         word={round.word}
         category={round.category}
-        noHint={round.imposter && !round.category}
+        near={round.near}
       />
 
       <div className="actions">

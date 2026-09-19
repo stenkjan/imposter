@@ -28,6 +28,8 @@ export type RoundView = {
   /** The secret word — null while you are the imposter and the round runs. */
   word: string | null
   category: { emoji: string; name: string } | null
+  /** A neighbour of the word — the imposter's hint, null for everybody else. */
+  near: string | null
   imposter: boolean
   ejectedId: string | null
   /** Only the ejected player's role is revealed, never the others'. */

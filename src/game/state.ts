@@ -42,9 +42,18 @@ export type ScoreRules = {
   imposterWin: number
 }
 
+/**
+ * What the imposter is told about the word they did not get.
+ * 'none' — nothing at all, the hardest setting for them.
+ * 'category' — the category, which the first clue usually gives away anyway.
+ * 'near' — the category plus a neighbour of the word (see Word.near): enough
+ * to bluff in the right direction, never enough to name it.
+ */
+export type ImposterHint = 'none' | 'category' | 'near'
+
 export type Settings = {
   imposters: number
-  hintForImposter: boolean
+  imposterHint: ImposterHint
   rounds: number
   /** Seconds on the discussion clock; 0 means no clock at all. */
   timerSeconds: number
@@ -157,7 +166,7 @@ export const DEFAULT_POINTS: ScoreRules = {
 export function defaultSettings(playerCount: number): Settings {
   return {
     imposters: Math.min(recommendedImposters(playerCount), maxImposters(playerCount)),
-    hintForImposter: true,
+    imposterHint: 'near',
     rounds: 3,
     timerSeconds: 120,
     lastChance: true,
@@ -180,6 +189,19 @@ const clampNumber = (value: unknown, min: number, max: number, fallback: number)
  * by an older deploy, and a client's own request — so every field is repaired
  * on the way in rather than trusted.
  */
+/**
+ * The hint used to be a plain on/off for the category. A stored `true` means
+ * the table wanted a hint, so it is upgraded to the better one rather than
+ * being pinned to the old, weaker level.
+ */
+function readHint(settings: Partial<Settings> | undefined, fallback: ImposterHint): ImposterHint {
+  const value = settings?.imposterHint
+  if (value === 'none' || value === 'category' || value === 'near') return value
+  const legacy = (settings as { hintForImposter?: unknown } | undefined)?.hintForImposter
+  if (typeof legacy === 'boolean') return legacy ? 'near' : 'none'
+  return fallback
+}
+
 export function normaliseSettings(settings: Partial<Settings> | undefined, playerCount: number): Settings {
   const base = defaultSettings(Math.max(playerCount, 3))
   const known = base.categoryIds
@@ -198,7 +220,7 @@ export function normaliseSettings(settings: Partial<Settings> | undefined, playe
     ),
     rounds: Math.round(clampNumber(settings?.rounds, 1, 20, base.rounds)),
     timerSeconds: Math.round(clampNumber(settings?.timerSeconds, 0, 3600, base.timerSeconds)),
-    hintForImposter: Boolean(settings?.hintForImposter ?? base.hintForImposter),
+    imposterHint: readHint(settings, base.imposterHint),
     lastChance: Boolean(settings?.lastChance ?? base.lastChance),
     orderMode:
       settings?.orderMode === 'lobby' || settings?.orderMode === 'random'
