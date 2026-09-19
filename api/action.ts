@@ -11,6 +11,7 @@ import { isValidCode, type ClientAction } from '../src/online/protocol.js'
 import * as kv from './_lib/kv.js'
 import {
   authorize,
+  awaySet,
   clampSettings,
   fail,
   forgetPresence,
@@ -19,6 +20,7 @@ import {
   loadRoom,
   presentPlayers,
   saveRoom,
+  seatedPlayers,
   settleClock,
   touchPresence,
   versionKey,
@@ -85,8 +87,9 @@ async function apply(
       const key = keysFor.readyKey(room.code, game.id, game.round.index)
       await kv.sadd(key, playerId)
       await kv.expire(key, 6 * 60 * 60)
-      const ready = await kv.smembers(key)
-      if (ready.length < room.players.length) {
+      const seated = seatedPlayers(room)
+      const ready = (await kv.smembers(key)).filter((id) => seated.some((p) => p.id === id))
+      if (ready.length < seated.length) {
         // Nothing in the room document changed, but the watchers want to
         // see the tick appear next to the name.
         await kv.incr(versionKey(room.code))
@@ -122,9 +125,14 @@ async function apply(
       const present = await presentPlayers(room.code)
       present.delete(playerId)
       await forgetPresence(room.code, playerId)
-      // Mid-game the seat stays, because the round still refers to it — and
-      // because the same name may walk back in a minute later.
-      if (!game) {
+      if (game) {
+        // The seat and the score stay behind, because the round still refers to
+        // the id and because the same name may walk back in a minute later. But
+        // the room stops showing them and the round stops counting on them —
+        // otherwise the vote waits forever for a phone that went home.
+        room.away = [...new Set([...(room.away ?? []), playerId])]
+        room.game = reduce(game, { type: 'playerLeft', playerId })
+      } else {
         room.players = room.players.filter((p) => p.id !== playerId)
         delete room.secrets[playerId]
       }
@@ -243,18 +251,23 @@ async function apply(
     case 'nextRound': {
       requireHost(isHost)
       if (!game || game.phase !== 'roundEnd') return false
-      room.game = isLastRound(game)
-        ? reduce(game, { type: 'endGame' })
-        : reduce(game, {
-            type: 'startRound',
-            round: makeRound(
-              game.round.index + 1,
-              game.players,
-              game.settings,
-              game.usedWords,
-              game.imposterHistory,
-            ),
-          })
+      // Only the phones still in the room get a card. Their scores stay on
+      // game.players either way, so a walk-out who comes back finds them.
+      const gone = awaySet(room)
+      const roster = game.players.filter((p) => !gone.has(p.id))
+      room.game =
+        isLastRound(game) || roster.length < MIN_PLAYERS
+          ? reduce(game, { type: 'endGame' })
+          : reduce(game, {
+              type: 'startRound',
+              round: makeRound(
+                game.round.index + 1,
+                roster,
+                game.settings,
+                game.usedWords,
+                game.imposterHistory,
+              ),
+            })
       return true
     }
 
@@ -272,7 +285,11 @@ async function apply(
       // straight back to whoever just had it.
       room.imposterHistory = game.imposterHistory
       room.game = null
-      room.players = room.players.map((p) => ({ ...p, score: 0 }))
+      // Back in the lobby a held seat means nothing: whoever is still here is
+      // visible, whoever walked out is gone for good and rejoins as a newcomer.
+      room.players = seatedPlayers(room).map((p) => ({ ...p, score: 0 }))
+      for (const id of room.away ?? []) delete room.secrets[id]
+      room.away = []
       return true
 
     default:

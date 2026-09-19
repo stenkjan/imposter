@@ -11,6 +11,7 @@ import {
   newToken,
   presentPlayers,
   saveRoom,
+  seatedPlayers,
   settleClock,
   touchPresence,
   versionKey,
@@ -36,8 +37,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       code: room.code,
       stage: room.game ? 'game' : 'lobby',
-      // An empty seat is one you can walk back into, name and all.
-      players: room.players.map((p) => ({ name: p.name, online: present.has(p.id) })),
+      // A seat whose phone left is not in the room any more, so it is not in
+      // the peek either. The name it holds still answers to a rejoin — that is
+      // how you walk back into your own seat, score and all.
+      players: seatedPlayers(room).map((p) => ({ name: p.name, online: present.has(p.id) })),
     })
   }
 
@@ -76,6 +79,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (present.has(seat.id)) return fail(res, 409, 'name-taken')
       const token = newToken()
       room.secrets[seat.id] = token
+      // Back in the room, and back in the list — but not back into the round
+      // they walked out of; the next one deals them a card again.
+      room.away = (room.away ?? []).filter((id) => id !== seat.id)
       settleClock(room)
       await saveRoom(room)
       await touchPresence(code, seat.id)

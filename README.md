@@ -231,14 +231,28 @@ seither die Namen, weil ein Index nach dem Hinzufügen oder Umstellen auf jemand
 anderen zeigt und die Rotation damit auf die Falschen gerechnet hätte.
 
 **Der Gastgeber wandert mit.** Verlässt er den Raum, erbt ihn jemand, der gerade am
-Handy ist; mitten im Spiel bleibt sein Platz stehen, damit die Runde nicht
-auseinanderfällt. Ist er einfach weg, ohne sich abzumelden, kann ihn nach rund
-anderthalb Minuten jede:r andere übernehmen.
+Handy ist. Ist er einfach weg, ohne sich abzumelden, kann ihn nach rund anderthalb
+Minuten jede:r andere übernehmen.
 
-**Ein leerer Platz gehört weiter dem, der ihn hatte.** Wer rausfliegt, neu lädt oder
-das Spiel schließt, kommt mit demselben Namen an denselben Platz zurück – mitten im
-Spiel und auch von einem anderen Gerät, weil der Platz dabei ein neues Token bekommt.
-Solange jemand auf dem Platz online ist, bleibt der Name gesperrt.
+**Wer weggeht, ist weg – der Platz bleibt trotzdem seiner.** Mitten im Spiel stand
+der Weggegangene bisher weiter in der Leiste, und das war nicht nur hässlich: die
+Runde zählte ihn mit, also wartete die Abstimmung auf eine Stimme, die nie kam, und
+die Bereit-Meldung kam nie auf 4/4. Jetzt verschwindet er aus der Leiste und aus
+`round.alive`, sobald er geht.
+
+Sein Sitz und sein Punktestand bleiben aber im Raum liegen (`room.away`), denn
+derselbe Name führt jederzeit dorthin zurück – von demselben Handy oder einem
+anderen, weil der Platz dabei ein neues Token bekommt. Zurück heißt zurück in die
+Leiste, nicht in die laufende Runde: die nächste Runde teilt ihm wieder eine Karte
+aus. Solange jemand auf dem Platz online ist, bleibt der Name gesperrt, und zurück in
+der Lobby werden die liegen gebliebenen Plätze endgültig geräumt.
+
+Ein Weggang ist keine Abstimmung, also verdient niemand daran. Die Runde muss aber
+merken, dass der Tisch anders aussieht: geht der einzige Imposter, gewinnen die
+Zivilisten – eine Runde ohne Imposter ist nicht spielbar. Sind die Imposter nach dem
+Weggang nicht mehr in der Unterzahl, gewinnen sie, dieselbe Regel wie nach einer
+Abstimmung. Und rutscht der Tisch unter drei Leute, endet die Partie statt eine
+Runde zu beginnen, die keine wäre.
 
 **Der Stream hat ein Netz unter sich.** Ein Handy, das in der Tasche einschläft, kommt
 mit einer `EventSource` zurück, die sich nie wieder verbindet – das war der Grund,

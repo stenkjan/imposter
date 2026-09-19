@@ -32,6 +32,13 @@ export type Room = {
   /** playerId -> bearer token. Never leaves the server. */
   secrets: Record<string, string>
   game: GameState | null
+  /**
+   * Seats whose phone left mid-game. They keep their place and their score so
+   * the same name can walk back in, but the room stops showing them and the
+   * round stops waiting for them. In the lobby a leaver is deleted outright,
+   * so this is only ever set while a game runs.
+   */
+  away?: string[]
   /** Imposters of every round played in this room, across restarts. */
   imposterHistory?: string[][]
   createdAt: number
@@ -121,9 +128,19 @@ export function authorize(room: Room, playerId: string, token: string): boolean 
  */
 export function handOverHost(room: Room, leaving: string, present: Set<string>): void {
   if (room.hostId !== leaving) return
-  const others = room.players.filter((p) => p.id !== leaving)
+  const gone = awaySet(room)
+  const others = room.players.filter((p) => p.id !== leaving && !gone.has(p.id))
   const successor = others.find((p) => present.has(p.id)) ?? others[0]
   if (successor) room.hostId = successor.id
+}
+
+/** Who walked out mid-game — invisible in the room until they come back. */
+export const awaySet = (room: Room) => new Set(room.away ?? [])
+
+/** The seats the room actually shows: everybody who has not walked out. */
+export const seatedPlayers = (room: Room) => {
+  const gone = awaySet(room)
+  return room.players.filter((p) => !gone.has(p.id))
 }
 
 /** Settings from a client are never trusted as they arrive. */
@@ -202,7 +219,7 @@ export async function viewFor(room: Room, playerId: string, version: number): Pr
   // Scores live on the running game, not on the room roster.
   const scores = new Map((game?.players ?? room.players).map((p) => [p.id, p.score]))
 
-  const players: PlayerView[] = room.players.map((p) => ({
+  const players: PlayerView[] = seatedPlayers(room).map((p) => ({
     id: p.id,
     name: p.name,
     score: scores.get(p.id) ?? 0,

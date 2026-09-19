@@ -262,6 +262,34 @@ check(
   ['b', 'c', 'd', 'e'].every((id) => solo.round.earned[id] === 1) && !solo.round.earned.a,
 )
 
+// --------------------------------------------------------------- Weggehen
+
+section('Wer weggeht, ist weg')
+
+// opening() liefert eine laufende Runde mit 'a' als Imposter.
+const table = opening()
+const walkout = reduce(table, { type: 'playerLeft', playerId: 'b' })
+check('der Platz ist raus aus der Runde', !walkout.round.alive.includes('b'))
+check('die anderen bleiben drin', walkout.round.alive.length === table.round.alive.length - 1)
+check('und niemand verdient daran', Object.keys(walkout.round.earned).length === 0)
+check('die Runde laeuft weiter', walkout.phase === table.phase && walkout.round.outcome === null)
+check(
+  'zweimal weggehen aendert nichts mehr',
+  reduce(walkout, { type: 'playerLeft', playerId: 'b' }) === walkout,
+)
+
+// Geht der einzige Imposter, ist die Runde nicht mehr spielbar.
+const noImposter = reduce(table, { type: 'playerLeft', playerId: 'a' })
+check('geht der Imposter, gewinnen die Zivilisten', noImposter.round.outcome === 'civilians')
+check('und die Runde ist vorbei', noImposter.phase === 'roundEnd')
+
+// Gehen so viele Zivilisten, dass der Imposter nicht mehr unterlegen ist,
+// ist die Runde ebenfalls entschieden — dieselbe Regel wie nach einer Abstimmung.
+let thinning = table
+for (const id of ['b', 'c', 'd']) thinning = reduce(thinning, { type: 'playerLeft', playerId: id })
+check('bleibt der Imposter gleichauf, gewinnt er', thinning.round.outcome === 'imposters')
+check('und auch hier endet die Runde', thinning.phase === 'roundEnd')
+
 // --------------------------------------------------------------- Hinweis
 
 section('Hinweis für den Imposter')

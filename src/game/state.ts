@@ -129,6 +129,8 @@ export type Action =
   | { type: 'continue'; as: 'discuss' | 'vote' }
   | { type: 'lastChance'; correct: boolean }
   | { type: 'startRound'; round: Round }
+  /** Somebody closed the room on their phone and is not coming back this round. */
+  | { type: 'playerLeft'; playerId: string }
   | { type: 'endGame' }
 
 // ---------------------------------------------------------------- helpers
@@ -479,6 +481,32 @@ export function reduce(state: GameState, action: Action): GameState {
 
     case 'endGame':
       return { ...state, phase: 'gameEnd' }
+
+    case 'playerLeft': {
+      if (!round.alive.includes(action.playerId)) return state
+      // Walking out is not an ejection: nobody learns the role, nobody is paid
+      // for it. The seat just stops being part of the round, so the vote does
+      // not sit there waiting for a phone that went home.
+      const next: Round = { ...round, alive: round.alive.filter((id) => id !== action.playerId) }
+      const running =
+        state.phase === 'reveal' ||
+        state.phase === 'discuss' ||
+        state.phase === 'vote' ||
+        state.phase === 'standoff'
+      // Mid-resolution the pending step decides; it is about to run the same
+      // two checks anyway.
+      if (!running) return { ...state, round: next }
+
+      const impostersLeft = aliveImposters(next)
+      const civiliansLeft = aliveCivilians(next)
+      // A round whose imposter walked out cannot be played to an end, and one
+      // where they are no longer outnumbered is already decided.
+      if (impostersLeft.length === 0) return finish(state, { ...next, outcome: 'civilians' })
+      if (impostersLeft.length >= civiliansLeft.length) {
+        return finish(state, { ...next, outcome: 'imposters' })
+      }
+      return { ...state, round: next }
+    }
 
     case 'startRound':
       return {
