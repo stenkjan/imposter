@@ -7,10 +7,10 @@ import { Avatar } from './ui'
  * The moment the game turns on: a face-down card with your name above it and
  * one button below. Pressing it flips the card to the artwork for your role.
  *
- * Both sides are built to look the same from across the table: one card back,
- * the same frame and the same wash of colour over either picture, and a role
- * line in the same weight whichever it says. In a live round the glow off
- * somebody's screen was giving the game away long before they spoke.
+ * Face down, both cards are identical. Once open, the room behind the card
+ * turns red for a civilian and stays black for an imposter — that colour is
+ * visible from across the table, so the reveal is meant to be read over a
+ * shoulder, not hidden from one.
  */
 export function RoleCard({
   t,
@@ -36,6 +36,9 @@ export function RoleCard({
 
   return (
     <>
+      {/* Outside .flip-scene on purpose — see .stage-wash in styles.css. */}
+      <div className="stage-wash" data-role={open && !imposter ? 'civilian' : 'none'} aria-hidden />
+
       <div className="who-plate">
         <Avatar name={name} size={56} />
         <span className="who-name">{name}</span>

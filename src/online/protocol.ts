@@ -41,6 +41,8 @@ export type RoundView = {
   deadlineAt: number | null
   pausedAt: number | null
   clockExpired: boolean
+  /** The clock ran the round out and handed it to the imposters. */
+  clockDecided: boolean
   /** Per-player points from this round — only once the round is scored. */
   earned: Record<string, number> | null
 }

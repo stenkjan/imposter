@@ -32,8 +32,9 @@ npm run test:live -- http://localhost:5173   # ... oder gegen den Dev-Server
 
 `scripts/rules.mjs` prüft die Regeln selbst, mit geseedetem Zufall und ohne Netz:
 dass dreimal hintereinander Imposter selten bleibt, dass der Imposter nicht ständig
-anfangen oder abschließen muss, dass die Uhr weiterläuft statt neu zu starten und
-dass kein Punkt auf einem Konto landet, bevor die Runde vorbei ist. Es lädt die
+anfangen oder abschließen muss, dass die Uhr weiterläuft statt neu zu starten, dass
+eine abgelaufene Uhr die Runde an die Imposter gibt, eine laufende Abstimmung aber
+stehen lässt, und dass kein Punkt auf einem Konto landet, bevor die Runde vorbei ist. Es lädt die
 TypeScript-Module über Vites SSR-Loader und braucht deshalb keinen Testrunner.
 
 `scripts/acceptance.mjs` spielt eine komplette Online-Partie durch und prüft dabei
@@ -58,12 +59,14 @@ Auf Vercel ist dieser Fallback gesperrt – dort sind fehlende Credentials ein F
    „Letzte Chance", Reihenfolge, Fairness, Punkte, Wortkategorien. Online stellt das
    der Gastgeber.
 4. **Karten** – jede:r deckt einmal auf.
-5. **Diskussion** – Startspieler:in, Reihenfolge, die Rundenuhr.
-6. **Abstimmung** – eine Person fliegt raus, ihre Rolle wird aufgedeckt. Nur ihre.
+5. **Diskussion** – Startspieler:in, Reihenfolge, die Rundenuhr. Läuft sie ab, ohne
+   dass abgestimmt wurde, ist die Runde vorbei und gehört den Imposter.
+6. **Abstimmung** – eine Person fliegt raus, ihre Rolle wird aufgedeckt. Nur ihre. Eine
+   einmal eröffnete Abstimmung wird zu Ende gespielt, auch wenn die Uhr dabei abläuft.
 7. **Patt** – hat die Abstimmung nichts entschieden, wählt der Gastgeber: *Neue
    Wortrunde* oder *Direkt abstimmen*. Die Uhr läuft dabei weiter.
 8. Zivilisten gewinnen, wenn alle Imposter draußen sind; Imposter gewinnen, sobald sie
-   gleich viele sind wie der Rest.
+   gleich viele sind wie der Rest – oder sobald die Uhr abgelaufen ist.
 9. **Punkte** nach jeder Runde, Endstand nach der letzten.
 
 ## Punkte
@@ -75,7 +78,7 @@ Jede Zeile ist in den Einstellungen einstellbar; 0 schaltet sie ab.
 | Stimme landet auf einem Imposter | der Zivilist, der getippt hat | +1 |
 | Abstimmung überstanden | jeder noch lebende Imposter | +1 pro Abstimmung |
 | Wort bei „Letzte Chance" erraten | der erwischte Imposter | +1 |
-| Die Uhr erzwingt die Abstimmung | jeder noch lebende Imposter | +1 |
+| Die Uhr läuft ab | jeder noch lebende Imposter | +1 |
 | Runde gewonnen | die siegreiche Seite | 0 (aus) |
 
 **Gebucht wird während der Runde, ausgezahlt erst danach.** Ein Punktestand, der mitten
@@ -150,18 +153,21 @@ beendete Partie mitzählt – Punkte, Partien, Siege. Es liegt im localStorage d
 Geräts, gilt für beide Spielarten und wird über eine Spiel-ID gegen Doppelzählung
 abgesichert. Erreichbar vom Startmenü und von jedem Endstand.
 
-**Beide Rollenkarten werfen dasselbe Licht.** Das Imposter-Bild ist eine Wand aus
-Feuer, das Zivilisten-Bild kühles Grau – im Livetest verriet der Schein vom Handy die
-Rolle, bevor jemand ein Wort gesagt hatte. Also wird das Feuer heruntergezogen, die
-Zivilisten-Karte bekommt denselben roten Schleier, und Rahmen wie Rollenzeile sind auf
-beiden Seiten identisch. Über die obere Kartenhälfte gemittelt liegen die beiden jetzt
-rund 13 statt 60 Punkte pro Kanal auseinander.
+**Die Rolle steht im Raum, nicht auf der Karte.** Verdeckt sehen beide Karten gleich
+aus. Aufgedeckt färbt sich der Hintergrund *hinter* der Karte rot, wenn du Zivilist
+bist, und bleibt schwarz, wenn du Imposter bist; das Zivilisten-Bild selbst bleibt, wie
+es gezeichnet ist. Das ist bewusst gewählt und kostet etwas: vorher waren beide Karten
+auf wenige Punkte pro Farbkanal angeglichen, weil im Livetest der Schein vom Handy die
+Rolle verriet, bevor jemand ein Wort gesagt hatte. Die Raumfarbe ist der größere
+Leuchtfleck – wer aufdeckt, sollte das Handy also abschirmen.
 
 **Eine Uhr pro Wortrunde, und sie gehört dem Server.** `round.deadlineAt` ist ein
 Zeitpunkt, kein Restwert: jedes Handy zählt auf denselben Moment herunter, ein Reload
 nimmt die Uhr dort auf, wo sie war, und eine zweite Wortrunde frisst dieselben Minuten
-weiter. Läuft sie ab, ohne dass der Gastgeber abgestimmt hat, erzwingt der Server die
-Abstimmung – und die überlebenden Imposter bekommen dafür ihren Punkt.
+weiter. Läuft sie ab, während noch diskutiert wird, beendet der Server die Runde und
+schreibt sie den Imposter gut. Läuft sie ab, während schon abgestimmt wird, buchen die
+überlebenden Imposter nur ihren Punkt – die Stimmen, die bereits liegen, verfallen
+nicht.
 
 **Der Gastgeber wandert mit.** Verlässt er den Raum, erbt ihn jemand, der gerade am
 Handy ist; mitten im Spiel bleibt sein Platz stehen, damit die Runde nicht

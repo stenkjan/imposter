@@ -1028,6 +1028,8 @@ ul {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    /* A delay survives a zeroed duration and would read as a lag on its own. */
+    transition-delay: 0.01ms !important;
   }
 }
 
@@ -1256,13 +1258,13 @@ ul {
 }
 
 /*
- * Both role cards have to throw the same light. The imposter artwork is a wall
- * of fire and the civilian one is cool grey, which in a live round told the
- * table who was who from two metres away — before anyone had said a word. So
- * the fire is pulled down, the civilian side is washed the same red, and the
- * two end up within a few points of each other on every channel. The
- * treatment is deliberately not symmetrical: matching the *result* is the
- * point, not applying the same numbers to both.
+ * The role now shows in the room around the card (see .stage-wash), not on
+ * the artwork: the civilian picture is left as drawn, the imposter card keeps
+ * the wash it always had. Note what this gives up — the two cards used to be
+ * matched to within a few points per channel precisely because the glow off
+ * somebody's screen was telling the table who was who from two metres away,
+ * before anyone had spoken. The room colour is a bigger, brighter tell than
+ * the card ever was, so this is a deliberate trade, not an oversight.
  */
 .face.front.imposter,
 .face.front.civilian {
@@ -1271,10 +1273,6 @@ ul {
 
 .face.front.imposter .art {
   filter: saturate(0.55);
-}
-
-.face.front.civilian .art {
-  filter: saturate(0.9) brightness(0.86);
 }
 
 .face.front::after {
@@ -1290,7 +1288,33 @@ ul {
 }
 
 .face.front.civilian {
-  --card-wash: rgba(168, 40, 56, 0.56);
+  --card-wash: transparent;
+}
+
+/*
+ * The board behind the card, not the card itself, carries the role colour.
+ * Fixed and at z-index -1 it lands in the same negative layer as .app::before
+ * but later in the DOM, so it covers the ambient lights while staying under
+ * the card, the caption and every control. It has to live outside
+ * .flip-scene: that element's `perspective` would make it the containing
+ * block and the wash would stop at the card instead of filling the screen.
+ * It fades in behind the flip rather than with it, so the turn reads as the
+ * card opening and not as the screen changing colour.
+ */
+.stage-wash {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.42s ease 0.28s;
+  background:
+    radial-gradient(90vw 60vh at 50% 42%, rgba(196, 34, 56, 0.9), transparent 74%),
+    #45101c;
+}
+
+.stage-wash[data-role='civilian'] {
+  opacity: 1;
 }
 
 .face.front .art {

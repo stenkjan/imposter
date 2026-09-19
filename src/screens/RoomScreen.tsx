@@ -788,6 +788,7 @@ function RoundEnd({ t, view, live, act, refresh, onLeave }: Props) {
       <div className="verdict" style={{ flex: 'none', paddingBlock: 6 }}>
         <Crew tone={impostersWon ? 'imposter' : 'civilian'} size={84} />
         <h2>{last ? t('finalTitle') : impostersWon ? t('impostersWin') : t('civiliansWin')}</h2>
+        {!last && round.clockDecided && <p className="hint">{t('clockRanOut')}</p>}
       </div>
 
       <div className="scroll">

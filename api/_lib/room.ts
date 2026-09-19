@@ -260,6 +260,7 @@ function roundView(
     deadlineAt: round.deadlineAt,
     pausedAt: round.pausedAt,
     clockExpired: round.clockExpired,
+    clockDecided: round.clockDecided,
     // A score that moved mid-round would say who guessed right.
     earned: over ? round.earned : null,
   }

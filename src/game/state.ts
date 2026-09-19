@@ -83,6 +83,8 @@ export type Round = {
   deadlineAt: number | null
   pausedAt: number | null
   clockExpired: boolean
+  /** The clock, not a vote, ended this round — the imposters simply ran it out. */
+  clockDecided: boolean
   /**
    * Points banked during the round, folded into the table only once the round
    * is scored. Keeping them here is what stops a score that ticks up mid-round
@@ -253,6 +255,7 @@ export function makeRound(
     deadlineAt: null,
     pausedAt: null,
     clockExpired: false,
+    clockDecided: false,
     earned: {},
   }
 }
@@ -373,11 +376,20 @@ export function reduce(state: GameState, action: Action): GameState {
 
     case 'expireClock': {
       if (round.clockExpired || round.deadlineAt === null) return state
+      if (state.phase !== 'discuss' && state.phase !== 'vote' && state.phase !== 'standoff') {
+        return state
+      }
       // Holding out for the full clock is worth something on its own: the
       // table never managed to call a vote on them.
       const survived = bankAll(round, aliveImposters(round), points.clockSurvived)
-      const next = { ...survived, clockExpired: true, pausedAt: null }
-      return { ...state, round: next, phase: state.phase === 'discuss' ? 'vote' : state.phase }
+      const next: Round = { ...survived, clockExpired: true, pausedAt: null }
+      // A vote already on the table plays out — calling it in time is exactly
+      // what the clock asks of the civilians, and yanking half-cast votes away
+      // would punish them for beating it.
+      if (state.phase === 'vote') return { ...state, round: next }
+      // Otherwise the clock decides the round: nobody was ever named, so it
+      // goes to the imposters.
+      return finish(state, { ...next, clockDecided: true, outcome: 'imposters' })
     }
 
     case 'pauseClock':

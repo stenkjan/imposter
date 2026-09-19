@@ -294,8 +294,10 @@ check('und laeuft noch', ticking.round.clockExpired === false)
 
 await sleep(2600)
 ticking = await snapshot(timed)
-check('abgelaufene Uhr erzwingt die Abstimmung', ticking.round.phase === 'vote')
+check('abgelaufene Uhr entscheidet die Runde', ticking.round.phase === 'roundEnd')
+check('und zwar für die Imposter', ticking.round.outcome === 'imposters')
 check('und ist als abgelaufen vermerkt', ticking.round.clockExpired === true)
+check('der Server sagt auch, dass die Uhr es war', ticking.round.clockDecided === true)
 
 // --------------------------------------------------------------- live stream
 

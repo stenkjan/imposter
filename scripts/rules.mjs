@@ -218,12 +218,30 @@ check(
 )
 
 const expired = reduce(talking, { type: 'expireClock' })
-check('abgelaufene Uhr erzwingt die Abstimmung', expired.phase === 'vote')
+check('abgelaufene Uhr entscheidet die Runde', expired.phase === 'roundEnd')
+check(
+  'und zwar für die Imposter',
+  expired.round.outcome === 'imposters' && expired.round.clockDecided === true,
+)
 check('durchgehalten bringt dem Imposter einen Punkt', expired.round.earned.a === 2)
+check(
+  'und erst jetzt steht er auf dem Konto',
+  expired.players.find((p) => p.id === 'a').score === 2,
+)
 check(
   'die Uhr zahlt nur einmal',
   reduce(expired, { type: 'expireClock' }).round.earned.a === 2,
 )
+
+// Wer rechtzeitig abstimmen lässt, soll die Stimmen nicht an die Uhr verlieren.
+const voting = reduce(talking, { type: 'toVote' })
+const beatenClock = reduce(voting, { type: 'expireClock' })
+check('eine laufende Abstimmung überlebt die Uhr', beatenClock.phase === 'vote')
+check(
+  'und die Runde bleibt offen',
+  beatenClock.round.outcome === null && beatenClock.round.clockDecided === false,
+)
+check('der Punkt fürs Durchhalten kommt trotzdem', beatenClock.round.earned.a === 2)
 
 const paused = reduce(talking, { type: 'pauseClock', at: 1_000 })
 const resumed = reduce(paused, { type: 'resumeClock', at: 4_000 })

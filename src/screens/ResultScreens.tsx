@@ -202,6 +202,7 @@ export function RoundEndScreen({
       <div className="verdict" style={{ flex: 'none', paddingBlock: 8 }}>
         <Crew tone={impostersWon ? 'imposter' : 'civilian'} size={92} />
         <h2>{impostersWon ? t('impostersWin') : t('civiliansWin')}</h2>
+        {state.round.clockDecided && <p className="hint">{t('clockRanOut')}</p>}
       </div>
 
       <div className="scroll">
