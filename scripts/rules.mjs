@@ -24,6 +24,7 @@ const server = await createServer({
 const { pickImposters, buildOrder } = await server.ssrLoadModule('/src/game/fairness.ts')
 const state = await server.ssrLoadModule('/src/game/state.ts')
 const { createGame, defaultSettings, makeRound, reduce } = state
+const { CATEGORIES } = await server.ssrLoadModule('/src/game/words.ts')
 
 let passed = 0
 let failed = 0
@@ -218,12 +219,30 @@ check(
 )
 
 const expired = reduce(talking, { type: 'expireClock' })
-check('abgelaufene Uhr erzwingt die Abstimmung', expired.phase === 'vote')
+check('abgelaufene Uhr entscheidet die Runde', expired.phase === 'roundEnd')
+check(
+  'und zwar für die Imposter',
+  expired.round.outcome === 'imposters' && expired.round.clockDecided === true,
+)
 check('durchgehalten bringt dem Imposter einen Punkt', expired.round.earned.a === 2)
+check(
+  'und erst jetzt steht er auf dem Konto',
+  expired.players.find((p) => p.id === 'a').score === 2,
+)
 check(
   'die Uhr zahlt nur einmal',
   reduce(expired, { type: 'expireClock' }).round.earned.a === 2,
 )
+
+// Wer rechtzeitig abstimmen lässt, soll die Stimmen nicht an die Uhr verlieren.
+const voting = reduce(talking, { type: 'toVote' })
+const beatenClock = reduce(voting, { type: 'expireClock' })
+check('eine laufende Abstimmung überlebt die Uhr', beatenClock.phase === 'vote')
+check(
+  'und die Runde bleibt offen',
+  beatenClock.round.outcome === null && beatenClock.round.clockDecided === false,
+)
+check('der Punkt fürs Durchhalten kommt trotzdem', beatenClock.round.earned.a === 2)
 
 const paused = reduce(talking, { type: 'pauseClock', at: 1_000 })
 const resumed = reduce(paused, { type: 'resumeClock', at: 4_000 })
@@ -242,6 +261,72 @@ check(
   'ohne Stimmzettel teilt sich der Tisch den Punkt',
   ['b', 'c', 'd', 'e'].every((id) => solo.round.earned[id] === 1) && !solo.round.earned.a,
 )
+
+// --------------------------------------------------------------- Weggehen
+
+section('Wer weggeht, ist weg')
+
+// opening() liefert eine laufende Runde mit 'a' als Imposter.
+const table = opening()
+const walkout = reduce(table, { type: 'playerLeft', playerId: 'b' })
+check('der Platz ist raus aus der Runde', !walkout.round.alive.includes('b'))
+check('die anderen bleiben drin', walkout.round.alive.length === table.round.alive.length - 1)
+check('und niemand verdient daran', Object.keys(walkout.round.earned).length === 0)
+check('die Runde laeuft weiter', walkout.phase === table.phase && walkout.round.outcome === null)
+check(
+  'zweimal weggehen aendert nichts mehr',
+  reduce(walkout, { type: 'playerLeft', playerId: 'b' }) === walkout,
+)
+
+// Geht der einzige Imposter, ist die Runde nicht mehr spielbar.
+const noImposter = reduce(table, { type: 'playerLeft', playerId: 'a' })
+check('geht der Imposter, gewinnen die Zivilisten', noImposter.round.outcome === 'civilians')
+check('und die Runde ist vorbei', noImposter.phase === 'roundEnd')
+
+// Gehen so viele Zivilisten, dass der Imposter nicht mehr unterlegen ist,
+// ist die Runde ebenfalls entschieden — dieselbe Regel wie nach einer Abstimmung.
+let thinning = table
+for (const id of ['b', 'c', 'd']) thinning = reduce(thinning, { type: 'playerLeft', playerId: id })
+check('bleibt der Imposter gleichauf, gewinnt er', thinning.round.outcome === 'imposters')
+check('und auch hier endet die Runde', thinning.phase === 'roundEnd')
+
+// --------------------------------------------------------------- Hinweis
+
+section('Hinweis für den Imposter')
+
+// Der Nachbar ist der ganze Hinweis, also muss er zwei Dinge sein: da, und
+// nicht das Wort. Ein Nachbar, der selbst in der Kategorie steht, waere sogar
+// schaedlich — der Imposter koennte ihn streichen und haette die Auswahl
+// kleiner gemacht statt sich eine Richtung zu holen.
+const norm = (w) => w.trim().toLowerCase()
+let noNear = 0
+let selfNear = 0
+let inCategory = 0
+let pairs = 0
+
+for (const category of CATEGORIES) {
+  const own = new Set(category.words.flatMap((w) => [norm(w.de), norm(w.en)]))
+  for (const word of category.words) {
+    pairs++
+    if (!word.near?.de?.trim() || !word.near?.en?.trim()) {
+      noNear++
+      continue
+    }
+    for (const lang of ['de', 'en']) {
+      if (norm(word.near[lang]) === norm(word[lang])) selfNear++
+      if (own.has(norm(word.near[lang]))) inCategory++
+    }
+  }
+}
+
+check('jedes Wort hat einen Nachbarn', noNear === 0, `${noNear} ohne`)
+check('der Nachbar ist nie das Wort selbst', selfNear === 0, `${selfNear} gleich`)
+check(
+  'und steht nie selbst in der Kategorie',
+  inCategory === 0,
+  `${inCategory} Treffer — der Imposter koennte streichen`,
+)
+check('alle Kategorien voll besetzt', pairs === 200, `${pairs} Wörter`)
 
 // --------------------------------------------------------------- Wörter
 

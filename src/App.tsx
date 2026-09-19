@@ -52,6 +52,12 @@ export default function App() {
   const [route, setRoute] = useState<Route>(invite ? 'online' : 'home')
   const [game, setGame] = useState<GameState | null>(null)
   const [creds, setCreds] = useState<Credentials | null>(null)
+  /**
+   * Who has had the card, kept outside the game so it survives the trip back
+   * through the line-up between two parties. Names are the ids here, so it
+   * still lines up after somebody is added, dropped or moved.
+   */
+  const [rotation, setRotation] = useState<string[][]>([])
 
   const t = useMemo(() => translator(lang), [lang])
   // Guards against an older persisted shape after a category or option change.
@@ -114,8 +120,11 @@ export default function App() {
   const startLocal = () => {
     setGame(
       createGame(
-        names.map((name, i) => ({ id: `p${i}`, name, score: 0 })),
+        // The name is the id: unique by the line-up's own rule, and stable
+        // across a change of line-up, which index-based ids were not.
+        names.map((name) => ({ id: name, name, score: 0 })),
         settings,
+        rotation,
       ),
     )
   }
@@ -201,10 +210,11 @@ export default function App() {
             <GameEndScreen
               t={t}
               state={game}
-              onPlayAgain={() =>
-                setGame(createGame(game.players, game.settings, game.imposterHistory))
-              }
-              onNewLineup={() => {
+              // Back through the line-up rather than straight into the next
+              // party: between two games the table usually wants the clock,
+              // the round count or who is playing changed.
+              onPlayAgain={() => {
+                setRotation(game.imposterHistory)
                 setGame(null)
                 setRoute('players')
               }}

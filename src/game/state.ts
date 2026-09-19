@@ -42,9 +42,18 @@ export type ScoreRules = {
   imposterWin: number
 }
 
+/**
+ * What the imposter is told about the word they did not get.
+ * 'none' — nothing at all, the hardest setting for them.
+ * 'category' — the category, which the first clue usually gives away anyway.
+ * 'near' — the category plus a neighbour of the word (see Word.near): enough
+ * to bluff in the right direction, never enough to name it.
+ */
+export type ImposterHint = 'none' | 'category' | 'near'
+
 export type Settings = {
   imposters: number
-  hintForImposter: boolean
+  imposterHint: ImposterHint
   rounds: number
   /** Seconds on the discussion clock; 0 means no clock at all. */
   timerSeconds: number
@@ -83,6 +92,8 @@ export type Round = {
   deadlineAt: number | null
   pausedAt: number | null
   clockExpired: boolean
+  /** The clock, not a vote, ended this round — the imposters simply ran it out. */
+  clockDecided: boolean
   /**
    * Points banked during the round, folded into the table only once the round
    * is scored. Keeping them here is what stops a score that ticks up mid-round
@@ -118,6 +129,8 @@ export type Action =
   | { type: 'continue'; as: 'discuss' | 'vote' }
   | { type: 'lastChance'; correct: boolean }
   | { type: 'startRound'; round: Round }
+  /** Somebody closed the room on their phone and is not coming back this round. */
+  | { type: 'playerLeft'; playerId: string }
   | { type: 'endGame' }
 
 // ---------------------------------------------------------------- helpers
@@ -155,7 +168,7 @@ export const DEFAULT_POINTS: ScoreRules = {
 export function defaultSettings(playerCount: number): Settings {
   return {
     imposters: Math.min(recommendedImposters(playerCount), maxImposters(playerCount)),
-    hintForImposter: true,
+    imposterHint: 'near',
     rounds: 3,
     timerSeconds: 120,
     lastChance: true,
@@ -178,6 +191,19 @@ const clampNumber = (value: unknown, min: number, max: number, fallback: number)
  * by an older deploy, and a client's own request — so every field is repaired
  * on the way in rather than trusted.
  */
+/**
+ * The hint used to be a plain on/off for the category. A stored `true` means
+ * the table wanted a hint, so it is upgraded to the better one rather than
+ * being pinned to the old, weaker level.
+ */
+function readHint(settings: Partial<Settings> | undefined, fallback: ImposterHint): ImposterHint {
+  const value = settings?.imposterHint
+  if (value === 'none' || value === 'category' || value === 'near') return value
+  const legacy = (settings as { hintForImposter?: unknown } | undefined)?.hintForImposter
+  if (typeof legacy === 'boolean') return legacy ? 'near' : 'none'
+  return fallback
+}
+
 export function normaliseSettings(settings: Partial<Settings> | undefined, playerCount: number): Settings {
   const base = defaultSettings(Math.max(playerCount, 3))
   const known = base.categoryIds
@@ -196,7 +222,7 @@ export function normaliseSettings(settings: Partial<Settings> | undefined, playe
     ),
     rounds: Math.round(clampNumber(settings?.rounds, 1, 20, base.rounds)),
     timerSeconds: Math.round(clampNumber(settings?.timerSeconds, 0, 3600, base.timerSeconds)),
-    hintForImposter: Boolean(settings?.hintForImposter ?? base.hintForImposter),
+    imposterHint: readHint(settings, base.imposterHint),
     lastChance: Boolean(settings?.lastChance ?? base.lastChance),
     orderMode:
       settings?.orderMode === 'lobby' || settings?.orderMode === 'random'
@@ -253,6 +279,7 @@ export function makeRound(
     deadlineAt: null,
     pausedAt: null,
     clockExpired: false,
+    clockDecided: false,
     earned: {},
   }
 }
@@ -373,11 +400,20 @@ export function reduce(state: GameState, action: Action): GameState {
 
     case 'expireClock': {
       if (round.clockExpired || round.deadlineAt === null) return state
+      if (state.phase !== 'discuss' && state.phase !== 'vote' && state.phase !== 'standoff') {
+        return state
+      }
       // Holding out for the full clock is worth something on its own: the
       // table never managed to call a vote on them.
       const survived = bankAll(round, aliveImposters(round), points.clockSurvived)
-      const next = { ...survived, clockExpired: true, pausedAt: null }
-      return { ...state, round: next, phase: state.phase === 'discuss' ? 'vote' : state.phase }
+      const next: Round = { ...survived, clockExpired: true, pausedAt: null }
+      // A vote already on the table plays out — calling it in time is exactly
+      // what the clock asks of the civilians, and yanking half-cast votes away
+      // would punish them for beating it.
+      if (state.phase === 'vote') return { ...state, round: next }
+      // Otherwise the clock decides the round: nobody was ever named, so it
+      // goes to the imposters.
+      return finish(state, { ...next, clockDecided: true, outcome: 'imposters' })
     }
 
     case 'pauseClock':
@@ -445,6 +481,32 @@ export function reduce(state: GameState, action: Action): GameState {
 
     case 'endGame':
       return { ...state, phase: 'gameEnd' }
+
+    case 'playerLeft': {
+      if (!round.alive.includes(action.playerId)) return state
+      // Walking out is not an ejection: nobody learns the role, nobody is paid
+      // for it. The seat just stops being part of the round, so the vote does
+      // not sit there waiting for a phone that went home.
+      const next: Round = { ...round, alive: round.alive.filter((id) => id !== action.playerId) }
+      const running =
+        state.phase === 'reveal' ||
+        state.phase === 'discuss' ||
+        state.phase === 'vote' ||
+        state.phase === 'standoff'
+      // Mid-resolution the pending step decides; it is about to run the same
+      // two checks anyway.
+      if (!running) return { ...state, round: next }
+
+      const impostersLeft = aliveImposters(next)
+      const civiliansLeft = aliveCivilians(next)
+      // A round whose imposter walked out cannot be played to an end, and one
+      // where they are no longer outnumbered is already decided.
+      if (impostersLeft.length === 0) return finish(state, { ...next, outcome: 'civilians' })
+      if (impostersLeft.length >= civiliansLeft.length) {
+        return finish(state, { ...next, outcome: 'imposters' })
+      }
+      return { ...state, round: next }
+    }
 
     case 'startRound':
       return {

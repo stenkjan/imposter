@@ -35,6 +35,12 @@ async function post(path, body) {
 }
 
 const act = (creds, action) => post('/api/action', { ...creds, action })
+/** Der Blick vor dem Beitreten: steht der Name noch im Raum? */
+const peekMisses = async (code, name) => {
+  const res = await fetch(`${BASE}/api/room?code=${code}`)
+  const body = await res.json()
+  return !(body.players ?? []).some((p) => p.name === name)
+}
 const snapshot = (creds) => post('/api/room', { op: 'snapshot', ...creds })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -79,7 +85,7 @@ await act(host, {
   type: 'settings',
   settings: {
     imposters: 1,
-    hintForImposter: true,
+    imposterHint: 'near',
     rounds: 2,
     timerSeconds: 0,
     lastChance: true,
@@ -117,6 +123,20 @@ check('Imposter sieht die Kategorie', imposters.every((v) => v.round.category))
 const words = new Set(cards.filter((v) => !v.round.imposter).map((v) => v.round.word))
 check('Zivilisten teilen ein Wort', words.size === 1, [...words].join('/'))
 check('Imposter-Liste verborgen', cards.every((v) => v.round.imposterIds === null))
+
+// Der Hinweis ist ein Nachbarwort, kein Leck: er geht nur an den Imposter und
+// ist nie das Wort, das die Zivilisten auf der Karte haben.
+const civilians = cards.filter((v) => !v.round.imposter)
+check(
+  'Imposter bekommt sein Nachbarwort',
+  imposters.every((v) => typeof v.round.near === 'string' && v.round.near.length > 0),
+  JSON.stringify(imposters.map((v) => v.round.near)),
+)
+check('Zivilisten bekommen keinen Hinweis', civilians.every((v) => v.round.near === null))
+check(
+  'der Nachbar ist nie das Wort',
+  imposters.every((v) => ![...words].some((w) => w.toLowerCase() === v.round.near.toLowerCase())),
+)
 
 // --------------------------------------------------------------- play
 
@@ -205,11 +225,41 @@ check(
 
 section('Neue Partie')
 const rematch = await act(host, { type: 'restart' })
-check('Neustart moeglich', rematch.round.phase === 'reveal')
+check('Neustart landet in der Lobby', rematch.stage === 'lobby' && rematch.round === null)
 check('Punkte zurueck auf null', rematch.players.every((p) => p.score === 0))
+
+// Genau das war vorher gesperrt: der Neustart sprang direkt in die naechste
+// Partie, und Uhr, Rundenzahl, Aufstellung und Beitritt blieben zu.
+const seating = rematch.players.map((p) => p.id)
+const retimed = await act(host, {
+  type: 'settings',
+  settings: { ...rematch.settings, rounds: 4, timerSeconds: 180 },
+})
+check(
+  'Uhr und Rundenzahl sind wieder einstellbar',
+  retimed.settings.rounds === 4 && retimed.settings.timerSeconds === 180,
+)
+const latecomer = await post('/api/room', { op: 'join', code, name: 'Nachzuegler' })
+check('ein neues Handy kommt rein', Boolean(latecomer.playerId), JSON.stringify(latecomer))
+check('und bekommt einen Platz', (await snapshot(host)).players.length === 6)
+await act(host, { type: 'kick', playerId: latecomer.playerId })
+
+const reversed = [...seating].reverse()
+const restacked = await act(host, { type: 'order', order: reversed })
+check(
+  'die Aufstellung laesst sich umstellen',
+  restacked.players.map((p) => p.id).join() === reversed.join(),
+)
+
+// Zurueck auf die Ausgangslage, damit die folgenden Abschnitte dieselbe Runde
+// pruefen wie bisher.
+await act(host, { type: 'order', order: seating })
+await act(host, { type: 'settings', settings: { ...retimed.settings, rounds: 2, timerSeconds: 0 } })
+const restarted = await act(host, { type: 'start' })
+check('und dann startet die neue Partie', restarted.round.phase === 'reveal')
 // Der Fehler aus dem Livetest: die neue Partie erbte die Bereitmeldungen der
 // alten, stand sofort auf 5/5 und kam trotzdem nie aus dem Warten heraus.
-check('niemand ist vorab bereit', rematch.players.every((p) => !p.ready))
+check('niemand ist vorab bereit', restarted.players.every((p) => !p.ready))
 const oneReady = await act(players[1], { type: 'ready' })
 check('eine Bereitmeldung startet noch nichts', oneReady.round.phase === 'reveal')
 check('sie wird aber gezaehlt', oneReady.players.filter((p) => p.ready).length === 1)
@@ -219,12 +269,25 @@ check('sie wird aber gezaehlt', oneReady.players.filter((p) => p.ready).length =
 section('Wieder einsteigen')
 const dropout = players[2]
 await act(dropout, { type: 'leave' })
+
+// Wer geht, ist weg: nicht ausgegraut in der Leiste, sondern gar nicht da.
+const leftView = await snapshot(host)
+check('der Platz verschwindet aus der Leiste', leftView.players.length === 4)
+check(
+  'und zwar genau seiner',
+  !leftView.players.some((p) => p.id === dropout.playerId),
+  JSON.stringify(leftView.players.map((p) => p.name)),
+)
+check('auch der Blick von aussen zeigt ihn nicht', await peekMisses(code, 'Matze'))
+check('die Runde wartet nicht mehr auf ihn', !leftView.round.alive.includes(dropout.playerId))
+
 const back = await post('/api/room', { op: 'join', code, name: 'Matze' })
 check('gleicher Platz zurueck', back.playerId === dropout.playerId, JSON.stringify(back))
 check('als Rueckkehr gekennzeichnet', back.rejoined === true)
 check('mit neuem Token', back.token !== dropout.token)
 const seats = await snapshot(back)
 check('kein zusaetzlicher Platz', seats.players.length === 5)
+check('und er steht wieder in der Leiste', seats.players.some((p) => p.id === dropout.playerId))
 check(
   'das alte Token gilt nicht mehr',
   (await act(dropout, { type: 'ready' })).error === 'not-a-member',
@@ -242,7 +305,7 @@ await act(host, { type: 'leave' })
 const after = await snapshot(players[1])
 const names = Object.fromEntries(after.players.map((p) => [p.id, p.name]))
 check('Host vererbt', names[after.hostId] !== 'Jan', names[after.hostId])
-check('Platz bleibt im laufenden Spiel', after.players.length === 5)
+check('der weggegangene Gastgeber ist auch weg', after.players.length === 4)
 check('neuer Host schaltet', !(await act(players[1], { type: 'toVote' })).error)
 
 // --------------------------------------------------------------- line-up
@@ -294,8 +357,61 @@ check('und laeuft noch', ticking.round.clockExpired === false)
 
 await sleep(2600)
 ticking = await snapshot(timed)
-check('abgelaufene Uhr erzwingt die Abstimmung', ticking.round.phase === 'vote')
+check('abgelaufene Uhr entscheidet die Runde', ticking.round.phase === 'roundEnd')
+check('und zwar für die Imposter', ticking.round.outcome === 'imposters')
 check('und ist als abgelaufen vermerkt', ticking.round.clockExpired === true)
+check('der Server sagt auch, dass die Uhr es war', ticking.round.clockDecided === true)
+
+// --------------------------------------------------------------- walking out
+
+section('Mitten im Spiel weggehen')
+
+// Der Fehler, um den es geht: ein Handy geht nach Hause, sein Platz bleibt in
+// der Leiste stehen, und die Abstimmung wartet bis in alle Ewigkeit auf eine
+// Stimme, die nie kommt.
+const quit = await post('/api/room', { op: 'create', name: 'Bleiber', lang: 'de' })
+// Der Name reist mit, weil nur er den Platz beim Zurueckkommen wiederfindet.
+const quitters = [{ ...quit, name: 'Bleiber' }]
+for (const name of ['Zweiter', 'Dritter', 'Vierter']) {
+  quitters.push({ ...(await post('/api/room', { op: 'join', code: quit.code, name })), name })
+}
+let leaving = await snapshot(quit)
+await act(quit, {
+  type: 'settings',
+  settings: { ...leaving.settings, imposters: 1, rounds: 1, timerSeconds: 0, lastChance: false },
+})
+leaving = await act(quit, { type: 'start' })
+for (const p of quitters) leaving = await act(p, { type: 'ready' })
+check('vier am Tisch, Diskussion laeuft', leaving.round.phase === 'discuss')
+
+// Es geht jemand, der nicht der Imposter ist — sonst waere die Runde sofort
+// entschieden, und das prueft rules.mjs schon fuer sich.
+const seen = []
+for (const p of quitters) seen.push({ p, view: await snapshot(p) })
+const goer = seen.find((s) => !s.view.round.imposter && s.p.playerId !== quit.playerId).p
+await act(goer, { type: 'leave' })
+
+const afterLeave = await snapshot(quit)
+check('die Leiste zeigt nur noch drei', afterLeave.players.length === 3)
+check('der Weggegangene ist nicht darunter', !afterLeave.players.some((p) => p.id === goer.playerId))
+check('und nicht mehr in der Runde', !afterLeave.round.alive.includes(goer.playerId))
+
+// Und jetzt das Eigentliche: die drei Verbliebenen bringen die Abstimmung zu
+// Ende, ohne auf das vierte Handy zu warten.
+let voting = await act(quit, { type: 'toVote' })
+const target = voting.round.alive[0]
+for (const { p } of seen.filter((s) => s.p.playerId !== goer.playerId)) {
+  voting = await act(p, { type: 'vote', targetId: target })
+}
+check('die Abstimmung loest ohne ihn auf', voting.round.phase === 'ejected', voting.round.phase)
+
+// Zurueckkommen darf er trotzdem — nur nicht mehr in diese Runde.
+const returned = await post('/api/room', { op: 'join', code: quit.code, name: goer.name })
+check('er kommt wieder rein', Boolean(returned.playerId), JSON.stringify(returned))
+check('auf seinen alten Platz', returned.playerId === goer.playerId && returned.rejoined === true)
+const afterBack = await snapshot(quit)
+check('und steht wieder in der Leiste', afterBack.players.length === 4)
+check('aber nicht in der laufenden Runde', !afterBack.round.alive.includes(goer.playerId))
 
 // --------------------------------------------------------------- live stream
 
